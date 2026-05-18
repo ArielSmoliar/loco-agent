@@ -84,6 +84,25 @@ Both terms are **normalized across all competing agents** -- relative priority, 
 
 > **Do not use alpha > 0.5 in production.** The simulation proves that alpha >= 0.75 causes starvation -- some agents complete zero tasks. The Dmax term is load-bearing for fairness.
 
+## Token Cost Visibility
+
+Task weight maps directly to token cost. When you set `weight=3.0` on a task, you're telling the scheduler "this is an expensive LLM call." The scheduler uses this for two things:
+
+1. **Scheduling** -- Qi (weighted queue depth) reflects total pending token spend, not just task count. An agent with one expensive task can outprioritize an agent with three cheap ones.
+2. **Visibility** -- every scheduling decision logs the task cost. The metrics API shows where tokens are going:
+
+```python
+scheduler.metrics.cost_by_agent()
+# {"rag-pipeline": 847.5, "webhook-handler": 42.0, "summarizer": 315.0}
+
+scheduler.metrics.total_cost()
+# 1204.5
+```
+
+This is the answer to "where are my tokens going, and is high-value work actually getting served first?" -- visibility into agentic spend without manual tracking.
+
+> **v0.1 is visibility only.** Cost tracking, not enforcement. Budget ceilings and per-agent spend limits are planned for the enterprise tier.
+
 ## How It Works
 
 ### Step 1: Register agents and a shared resource
