@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import Any, AsyncIterator, Callable
 
 from loco.agent import Agent
 from loco.resource import SharedResource
@@ -39,6 +39,8 @@ class AsyncLOCOScheduler:
         alpha: float = 0.25,
         max_waiters: int = 100,
         seed: int | None = None,
+        on_task_started: Callable[[str, Task], None] | None = None,
+        on_task_completed: Callable[[str, Task, Any], None] | None = None,
     ) -> None:
         self.resource = resource
         self.max_waiters = max_waiters
@@ -46,6 +48,8 @@ class AsyncLOCOScheduler:
         self._lock = asyncio.Lock()
         self._shutting_down = False
         self._logical_tick = 0
+        self.on_task_started = on_task_started
+        self.on_task_completed = on_task_completed
 
     @property
     def agents(self) -> dict[str, Agent]:
@@ -74,15 +78,22 @@ class AsyncLOCOScheduler:
         agent.tasks.append(task)
 
     @asynccontextmanager
-    async def acquire(self, agent_id: str) -> AsyncIterator[None]:
+    async def acquire(
+        self, agent_id: str, *, timeout: float | None = None
+    ) -> AsyncIterator[None]:
         """Acquire the shared resource for the given agent.
 
         Blocks until L(i) wins a slot. Yields inside the context manager
         while the resource is held. Automatically releases on exit.
 
+        Args:
+            agent_id: The agent requesting the resource.
+            timeout: Max seconds to wait. None = wait forever.
+
         Raises:
             BackpressureError: if waiters exceed max_waiters.
             ShutdownError: if scheduler is shutting down.
+            TimeoutError: if timeout expires while waiting.
         """
         if self._shutting_down:
             raise ShutdownError("Scheduler is shutting down")
@@ -97,12 +108,32 @@ class AsyncLOCOScheduler:
                     f"Too many waiters ({self.resource.waiter_count} >= {self.max_waiters})"
                 )
 
-            # Register as waiter and block
-            await self.resource.wait_for_slot(agent_id)
+            # Register as waiter and block (with optional timeout)
+            try:
+                if timeout is not None:
+                    async with asyncio.timeout(timeout):
+                        await self.resource.wait_for_slot(agent_id)
+                else:
+                    await self.resource.wait_for_slot(agent_id)
+            except TimeoutError:
+                # Clean up: remove from wait queue
+                await self.resource.cancel_waiter(agent_id)
+                raise
+
+        # Fire lifecycle hook
+        agent = self.get_agent(agent_id)
+        serving_task = agent.tasks[0] if agent.tasks else None
+        if self.on_task_started and serving_task:
+            self.on_task_started(agent_id, serving_task)
 
         # Resource is held -- yield to caller
-        async with self.resource.held_by(agent_id):
-            yield
+        try:
+            async with self.resource.held_by(agent_id):
+                yield
+        finally:
+            # Fire completion hook
+            if self.on_task_completed and serving_task:
+                self.on_task_completed(agent_id, serving_task, None)
 
         # After release: age waiting tasks, re-score, grant next waiter
         await self._on_release()
