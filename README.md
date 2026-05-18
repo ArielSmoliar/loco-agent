@@ -176,14 +176,79 @@ That's the full lifecycle: register, submit, acquire, release. The scheduler han
 
 ## Framework Integration
 
-LOCO-Agent doesn't replace your framework. It wraps the resource calls via framework-specific adapters:
+LOCO-Agent doesn't replace your framework. It wraps the resource calls via framework-specific adapters. The adapter sits between the framework and the scheduler -- the developer's agents run unchanged.
+
+```
+Developer's agent code (unchanged)
+    │
+    ▼
+Framework fires hook ─────────────────────────────────┐
+(on_llm_start / before_model_callback)                │
+    │                                                  │
+    ▼                                                  │
+┌─────────────────────────────────┐                   │
+│         LOCO Adapter            │                   │
+│                                 │                   │
+│  1. Estimate token cost         │                   │
+│     (from prompt + model tier)  │                   │
+│                                 │                   │
+│  2. Create Task(weight=cost)    │                   │
+│                                 │                   │
+│  3. Submit to scheduler         │                   │
+│                                 │                   │
+│  4. Acquire resource            │                   │
+│     (blocks until L(i) wins)    │                   │
+└────────────┬────────────────────┘                   │
+             │                                         │
+             ▼                                         │
+  LLM call fires ────────────────────────────────────►│
+             │                                         │
+             ▼                                         │
+  Framework fires completion hook ◄───────────────────┘
+  (on_llm_end / after_model_callback)
+             │
+             ▼
+  Adapter calls release() → scheduler re-evaluates all waiters
+```
+
+### How the adapter knows the token cost
+
+The adapter estimates cost from information available *before* the LLM call fires. Two approaches:
+
+**Static model tiers** (simplest, good enough for scheduling):
+
+```python
+# Platform engineer defines this once
+MODEL_COST = {
+    "haiku": 1.0,
+    "sonnet": 2.0,
+    "opus": 5.0,
+    "gpt-4o": 3.0,
+    "gemini-flash": 1.0,
+}
+```
+
+**Prompt-based estimate** (more precise):
+
+```python
+def estimate_cost(prompts, model="sonnet"):
+    tokens = sum(len(p) for p in prompts) // 4   # rough char-to-token
+    cost_per_1k = MODEL_COST.get(model, 1.0)
+    return tokens * cost_per_1k / 1000
+```
+
+The load function normalizes (`Qi / max Qj`), so relative cost is what matters -- not exact dollar amounts. A weight=3 task gets 3x the scheduling weight of a weight=1 task. Being roughly right is enough for correct priority ordering.
+
+> **v0.2 planned:** empirical cost tracking -- after each call completes, record actual token usage and auto-adjust future estimates.
 
 ### LangChain (via callbacks)
 
 ```python
 class LOCOCallback(BaseCallbackHandler):
     async def on_llm_start(self, serialized, prompts, **kwargs):
-        await scheduler.submit_task(self.agent_id, Task(weight=estimate_cost(prompts)))
+        model = serialized.get("kwargs", {}).get("model_name", "sonnet")
+        weight = estimate_cost(prompts, model)
+        await scheduler.submit_task(self.agent_id, Task(weight=weight))
         await scheduler.acquire(self.agent_id)
 
     async def on_llm_end(self, response, **kwargs):
@@ -197,7 +262,8 @@ llm = ChatOpenAI(callbacks=[LOCOCallback(scheduler, "rag-agent-1")])
 
 ```python
 async def loco_before_model(ctx, llm_request):
-    await scheduler.submit_task(ctx.agent_name, Task(weight=estimate_cost(llm_request)))
+    weight = MODEL_COST.get(ctx.model, 1.0)
+    await scheduler.submit_task(ctx.agent_name, Task(weight=weight))
     await scheduler.acquire(ctx.agent_name)
     return None  # proceed with the call
 
