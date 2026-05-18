@@ -259,7 +259,7 @@ The thesis proved convergence for wireless nodes competing for a shared channel.
 ### v0.1 (in progress)
 - [x] Load function validation (simulation notebook)
 - [x] Build plan and API spec
-- [ ] Package scaffolding + Task/Agent extraction
+- [x] Package scaffolding + Task/Agent extraction
 - [ ] Async scheduler with acquire/release
 - [ ] Scenario validation against production code
 - [ ] Vanilla adapter + examples
