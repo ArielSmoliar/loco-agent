@@ -1,0 +1,45 @@
+# LOCO-Agent
+
+> Load-Conscious Orchestration for Concurrent Operations. Async-first Python scheduler for multi-agent systems.
+
+LOCO-Agent is a load-aware scheduling layer that sits underneath LangGraph, CrewAI, Google ADK, OpenAI Agents SDK, or any Python agent framework. It decides which agent gets the shared resource next using a load function derived from a 2011 wireless networks contention protocol.
+
+## Core equation
+
+L(i) = alpha * (Qi / max Qj) + (1 - alpha) * (Dmax_i / max Dmax_j)
+
+- Qi: weighted queue depth (sum of task costs)
+- Dmax_i: age of oldest waiting task
+- alpha: throughput/latency trade-off (recommended: 0.25)
+
+## Pages
+
+- [README](https://github.com/ArielSmoliar/loco-agent/blob/main/README.md): Overview, quick start, integration examples
+- [Build Plan](https://github.com/ArielSmoliar/loco-agent/blob/main/PLAN.md): Full v0.1 architecture, API spec, day-by-day plan
+- [Simulation Notebook](https://github.com/ArielSmoliar/loco-agent/blob/main/simulation/loco_simulation.ipynb): Load function validation across 3 scenarios (burst, fairness, webhook spike)
+
+## Public API (v0.1 target)
+
+- LOCOScheduler(agents, alpha=0.25) — main scheduler
+- optimize_for="latency" | "balanced" | "throughput" — human-friendly alpha mapping
+- async acquire(resource, agent_id) — request shared resource, blocks until granted by priority
+- release(resource, agent_id) — free resource, triggers re-scoring of waiters
+- submit_task(agent_id, task) — enqueue work to an agent
+- shutdown(timeout) — graceful shutdown
+
+## Integration patterns
+
+- LangChain: via BaseCallbackHandler (on_llm_start / on_llm_end)
+- Google ADK: via before_model_callback / after_model_callback
+- Any framework: wrap LLM/resource calls with acquire/release
+
+## Key claims (validated in simulation)
+
+- No starvation at alpha <= 0.5 (Jain's fairness >= 0.98 at alpha=0)
+- Urgent tasks escalate automatically via Dmax growth (no priority rules)
+- Starvation occurs at alpha >= 0.75 (Dmax term is load-bearing for fairness)
+- Framework-agnostic: scheduler is unaware of which framework produced the agent
+
+## License
+
+AGPL-3.0 (open core)
