@@ -84,19 +84,66 @@ Both terms are **normalized across all competing agents** -- relative priority, 
 
 > **Do not use alpha > 0.5 in production.** The simulation proves that alpha >= 0.75 causes starvation -- some agents complete zero tasks. The Dmax term is load-bearing for fairness.
 
-## How It Integrates
+## How It Works
 
-LOCO-Agent doesn't replace your framework. It wraps the resource calls:
+### Step 1: Register agents and a shared resource
+
+At app startup, the platform engineer tells the scheduler which agents exist and what resource they share. Each agent gets its own task queue -- the scheduler reads queue depth and wait time directly from it.
+
+```python
+from loco import Agent, Task, LOCOScheduler, SharedResource
+
+# Define the shared resource (e.g. LLM API with 3 concurrent slots)
+llm_api = SharedResource(name="llm_api", capacity=3)
+
+# Register agents -- these are the competitors
+agents = [
+    Agent(agent_id="rag-pipeline", agent_type="batch"),
+    Agent(agent_id="webhook-handler", agent_type="webhook"),
+    Agent(agent_id="summarizer", agent_type="batch"),
+]
+
+# Create the scheduler -- it now owns these agents
+scheduler = LOCOScheduler(agents, llm_api, optimize_for="balanced")
+```
+
+### Step 2: Submit tasks as work arrives
+
+When an agent has work to do, submit a task to its queue. The task's weight reflects its cost (1=cheap, 3=expensive).
+
+```python
+# A webhook just fired -- submit urgent work
+await scheduler.submit_task("webhook-handler", Task(weight=1.0, task_type="webhook"))
+
+# A batch job queued 5 documents for RAG processing
+for doc in documents:
+    await scheduler.submit_task("rag-pipeline", Task(weight=2.0, task_type="rag"))
+```
+
+### Step 3: Acquire the resource, do the work, release
+
+Agents compete for the resource through the load function. The scheduler decides who goes next.
+
+```python
+# The agent requests the resource -- blocks until L(i) wins
+async with scheduler.acquire("webhook-handler"):
+    result = await call_llm(prompt)
+# Resource auto-released on exit, scheduler re-evaluates all waiters
+```
+
+That's the full lifecycle: register, submit, acquire, release. The scheduler handles priority, fairness, and contention automatically.
+
+## Framework Integration
+
+LOCO-Agent doesn't replace your framework. It wraps the resource calls via framework-specific adapters:
 
 ### LangChain (via callbacks)
 
 ```python
-from loco_agent import LOCOScheduler
-
 class LOCOCallback(BaseCallbackHandler):
     async def on_llm_start(self, serialized, prompts, **kwargs):
-        task = scheduler.register_task(agent_id=self.agent_id, weight=estimate_cost(prompts))
-        await scheduler.acquire(task)
+        await scheduler.submit_task(self.agent_id, Task(weight=estimate_cost(prompts)))
+        await scheduler.acquire(self.agent_id)
 
     async def on_llm_end(self, response, **kwargs):
         scheduler.release(self.agent_id)
@@ -108,11 +155,9 @@ llm = ChatOpenAI(callbacks=[LOCOCallback(scheduler, "rag-agent-1")])
 ### Google ADK (via model callbacks)
 
 ```python
-from loco_agent import LOCOScheduler
-
 async def loco_before_model(ctx, llm_request):
-    task = scheduler.register_task(agent_id=ctx.agent_name, weight=estimate_cost(llm_request))
-    await scheduler.acquire(task)
+    await scheduler.submit_task(ctx.agent_name, Task(weight=estimate_cost(llm_request)))
+    await scheduler.acquire(ctx.agent_name)
     return None  # proceed with the call
 
 async def loco_after_model(ctx, llm_response):
@@ -124,15 +169,17 @@ agent = Agent(name="support", model="gemini-2.0-flash",
               after_model_callback=loco_after_model)
 ```
 
-### The key: shared scheduler
+### Cross-framework scheduling
+
+The key: both frameworks point to the same scheduler instance.
 
 ```python
-# Both frameworks point to the same scheduler
-scheduler = LOCOScheduler(alpha=0.3, resource_slots=10)
+# One scheduler, one resource pool, all agents compete through L(i)
+scheduler = LOCOScheduler(agents, llm_api, optimize_for="balanced")
 
-# LangChain agents register as agents 0-4
-# ADK agents register as agents 5-9
-# L(i) competes across ALL of them
+# LangChain agents registered as "rag-pipeline", "qa-chain", "summarizer"
+# ADK agents registered as "webhook-handler", "support-bot", "billing"
+# All 6 compete for the same 3 LLM API slots
 ```
 
 When ADK webhooks spike, their Dmax grows. The scheduler naturally deprioritizes LangChain batch jobs -- no rules, no manual priority.
