@@ -13,11 +13,15 @@ LOCO-Agent is a load-aware scheduling layer for multi-agent systems. It sits und
 
 ## The Problem
 
-Every agent framework solves choreography (which agent does what). None of them solve scheduling (which agent goes *next* when resources are scarce).
+Organizations deploying agents at scale hit three problems no framework solves:
 
-When your LangChain RAG pipeline and your Google ADK webhook handler both spike at 2pm, they fight over the same LLM API quota blindly. The batch job wins because it got there first. The urgent webhook waits. Your customer notices.
+1. **No scheduling.** Every framework solves choreography (which agent does what). None solve scheduling (which agent goes *next* when resources are scarce). Your LangChain RAG pipeline and Google ADK webhook handler spike at 2pm and fight over the same LLM API quota blindly. The batch job wins because it got there first. The urgent webhook waits. Your customer notices.
 
-LOCO-Agent is the missing layer underneath.
+2. **No token visibility.** You're spending $200k/month on LLM inference across dozens of agents. You can't answer "which agents are consuming the most tokens?" or "is high-value work actually getting served first?" Each framework tracks its own calls. Nobody has the cross-agent view.
+
+3. **Manual tuning that never ends.** Every time you add an agent, change a model, or shift traffic patterns, someone has to manually re-tune priorities, rate limits, and routing rules. This is a full-time job that doesn't scale -- and the rules go stale the moment workload patterns shift.
+
+LOCO-Agent solves all three with one layer underneath your existing frameworks.
 
 ```
                   ┌─────────────────────────────┐
@@ -84,24 +88,42 @@ Both terms are **normalized across all competing agents** -- relative priority, 
 
 > **Do not use alpha > 0.5 in production.** The simulation proves that alpha >= 0.75 causes starvation -- some agents complete zero tasks. The Dmax term is load-bearing for fairness.
 
-## Token Cost Visibility
+## Token Management
 
-Task weight maps directly to token cost. When you set `weight=3.0` on a task, you're telling the scheduler "this is an expensive LLM call." The scheduler uses this for two things:
+Task weight maps directly to token cost. This gives the scheduler cost-awareness across every agent in the organization, regardless of which framework runs it.
 
-1. **Scheduling** -- Qi (weighted queue depth) reflects total pending token spend, not just task count. An agent with one expensive task can outprioritize an agent with three cheap ones.
-2. **Visibility** -- every scheduling decision logs the task cost. The metrics API shows where tokens are going:
+### Cost-aware scheduling
+
+Qi (weighted queue depth) reflects total pending token spend, not just task count. An agent with one GPT-4o call (weight=3) can outprioritize an agent with three Haiku calls (weight=1). The scheduler routes tokens to the work that needs them most.
+
+```python
+# Expensive analysis task -- scheduler knows this costs more
+await scheduler.submit_task("fraud-detector", Task(weight=3.0, task_type="gpt4o"))
+
+# Cheap triage task -- won't block expensive work unnecessarily
+await scheduler.submit_task("ticket-router", Task(weight=1.0, task_type="haiku"))
+```
+
+### Cross-agent spend visibility
+
+Every scheduling decision logs the task cost. The metrics API gives the org-level view that no single framework provides:
 
 ```python
 scheduler.metrics.cost_by_agent()
-# {"rag-pipeline": 847.5, "webhook-handler": 42.0, "summarizer": 315.0}
+# {"fraud-detector": 847.5, "webhook-handler": 42.0, "ticket-router": 115.0,
+#  "rag-pipeline": 315.0, "summarizer": 203.0}
 
 scheduler.metrics.total_cost()
-# 1204.5
+# 1522.5
 ```
 
-This is the answer to "where are my tokens going, and is high-value work actually getting served first?" -- visibility into agentic spend without manual tracking.
+This answers the questions that matter at scale: which agents are consuming the most tokens? Is high-value work getting served first? Which team's agents are driving spend?
 
-> **v0.1 is visibility only.** Cost tracking, not enforcement. Budget ceilings and per-agent spend limits are planned for the enterprise tier.
+### Self-tuning priority
+
+The load function replaces manual priority rules with math that adapts automatically. When you add a new agent or traffic patterns shift, you don't re-tune anything -- the scheduler re-normalizes across all agents on every scheduling decision. The alpha parameter (`optimize_for`) is the only knob, and it rarely needs to change.
+
+> **v0.1 is visibility only.** Cost tracking and scheduling, not enforcement. Budget ceilings, per-agent spend limits, and model-tier routing are planned for the enterprise tier.
 
 ## How It Works
 
