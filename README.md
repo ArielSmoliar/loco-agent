@@ -230,6 +230,7 @@ The thesis proved convergence for wireless nodes competing for a shared channel.
 - [ ] Google ADK adapter
 - [ ] CrewAI adapter
 - [ ] OpenAI Agents SDK adapter
+- [ ] Dynamic agent registration (agents spinning up/down at runtime)
 - [ ] Multi-resource contention
 - [ ] Adaptive alpha tuning (renormalization)
 - [ ] A2A protocol integration

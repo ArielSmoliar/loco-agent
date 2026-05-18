@@ -263,6 +263,7 @@ Cost tracking is visibility-only in v0.1. No enforcement or ceilings.
 
 ### Out of scope for v0.1
 
+- Dynamic agent registration (agents spinning up/down at runtime)
 - Multi-resource contention and deadlock prevention
 - Adaptive alpha tuning (renormalization)
 - Framework-specific adapters (LangChain, ADK, CrewAI, OpenAI)
