@@ -50,6 +50,7 @@ LOCO-Agent solves all three with one layer underneath your existing frameworks.
 ```bash
 git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
+python3 -m venv .venv && source .venv/bin/activate
 pip install numpy matplotlib jupyter
 jupyter notebook simulation/loco_simulation.ipynb
 ```
