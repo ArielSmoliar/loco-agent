@@ -1,0 +1,38 @@
+name: Bug Report
+description: Report a bug in LOCO-Agent
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly.
+      placeholder: "When I run X, I expected Y but got Z."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal code or steps to trigger the bug.
+      placeholder: |
+        1. Create scheduler with alpha=0.5
+        2. Submit 10 tasks
+        3. Observe incorrect priority ordering
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.12"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS 15, Ubuntu 24.04, Windows 11"
+    validations:
+      required: true

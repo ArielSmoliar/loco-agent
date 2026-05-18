@@ -1,0 +1,29 @@
+name: Adapter Request
+description: Request or propose an adapter for a specific agent framework
+title: "[Adapter]: "
+labels: ["adapter", "good first issue"]
+body:
+  - type: input
+    id: framework
+    attributes:
+      label: Framework name
+      placeholder: "LangChain, CrewAI, Google ADK, OpenAI SDK, AutoGen, etc."
+    validations:
+      required: true
+  - type: textarea
+    id: hook-points
+    attributes:
+      label: Integration hook points
+      description: Where does the framework allow intercepting LLM/resource calls?
+      placeholder: |
+        LangChain: BaseCallbackHandler.on_llm_start / on_llm_end
+        ADK: before_model_callback / after_model_callback
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Links to framework docs, relevant code, or your use case.
+    validations:
+      required: false
