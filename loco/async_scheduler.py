@@ -3,10 +3,37 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable
 from uuid import uuid4
+
+# asyncio.timeout was added in 3.11; provide a minimal fallback for 3.10.
+if sys.version_info >= (3, 11):
+    _timeout = asyncio.timeout
+else:
+    @asynccontextmanager
+    async def _timeout(delay):
+        """Minimal asyncio.timeout substitute for Python 3.10."""
+        loop = asyncio.get_running_loop()
+        task = asyncio.current_task()
+        timed_out = False
+
+        def _on_timeout():
+            nonlocal timed_out
+            timed_out = True
+            task.cancel()
+
+        handle = loop.call_at(loop.time() + delay, _on_timeout)
+        try:
+            yield
+        except asyncio.CancelledError:
+            if timed_out:
+                raise TimeoutError
+            raise
+        finally:
+            handle.cancel()
 
 from loco import logging as loco_log
 from loco.adaptive import AdaptiveAlphaTuner
@@ -185,7 +212,7 @@ class AsyncLOCOScheduler:
             # Register as waiter and block (with optional timeout)
             try:
                 if timeout is not None:
-                    async with asyncio.timeout(timeout):
+                    async with _timeout(timeout):
                         await self.resource.wait_for_slot(agent_id)
                 else:
                     await self.resource.wait_for_slot(agent_id)
@@ -264,7 +291,7 @@ class AsyncLOCOScheduler:
                 )
             try:
                 if timeout is not None:
-                    async with asyncio.timeout(timeout):
+                    async with _timeout(timeout):
                         await self.resource.wait_for_slot(agent_id)
                 else:
                     await self.resource.wait_for_slot(agent_id)
@@ -379,7 +406,7 @@ class AsyncLOCOScheduler:
         remaining = self.resource.holder_count
         if remaining > 0:
             try:
-                async with asyncio.timeout(timeout):
+                async with _timeout(timeout):
                     while self.resource.holder_count > 0:
                         await asyncio.sleep(0.01)
             except TimeoutError:

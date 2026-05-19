@@ -48,10 +48,10 @@ async def test_five_agents_fifteen_tasks_no_deadlock():
                     completed.append((agent_id, task.task_id))
                     await asyncio.sleep(0.01)  # simulate work
 
-    async with asyncio.timeout(10):
-        await asyncio.gather(*[
-            agent_work(f"agent-{i}") for i in range(5)
-        ])
+    await asyncio.wait_for(
+        asyncio.gather(*[agent_work(f"agent-{i}") for i in range(5)]),
+        timeout=10,
+    )
 
     assert len(completed) == 15
     # Every agent contributed 3 tasks

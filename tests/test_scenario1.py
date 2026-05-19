@@ -149,8 +149,7 @@ async def test_all_tasks_complete_no_deadlock():
     ]
 
     # Must complete within 5 seconds — if it hangs, deadlock
-    async with asyncio.timeout(5.0):
-        await asyncio.gather(*workers)
+    await asyncio.wait_for(asyncio.gather(*workers), timeout=5.0)
 
     # All agent queues should be drained (workers dequeue via serve_oldest_task)
     for i in range(N_AGENTS):
