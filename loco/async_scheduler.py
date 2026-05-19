@@ -9,6 +9,8 @@ from typing import Any, AsyncIterator, Callable
 from uuid import uuid4
 
 from loco.agent import Agent
+from loco import logging as loco_log
+from loco.metrics import SchedulerMetrics
 from loco.resource import SharedResource
 from loco.scheduler import LOCOScheduler
 from loco.task import Task
@@ -68,6 +70,7 @@ class AsyncLOCOScheduler:
         self._shutting_down = False
         self._logical_tick = 0
         self._active_handles: dict[str, AcquireHandle] = {}
+        self.metrics = SchedulerMetrics(self)
         self.on_task_started = on_task_started
         self.on_task_completed = on_task_completed
 
@@ -135,6 +138,13 @@ class AsyncLOCOScheduler:
             self._auto_register(agent_id)
         agent = self._scorer.get_agent(agent_id)
         agent.tasks.append(task)
+        loco_log.emit_enqueue(
+            tick=self._logical_tick,
+            agent_id=agent_id,
+            task=task,
+            queue_depth=agent.queue_depth_weighted,
+            resource_name=self.resource.name,
+        )
 
     @asynccontextmanager
     async def acquire(
@@ -179,9 +189,23 @@ class AsyncLOCOScheduler:
                 await self.resource.cancel_waiter(agent_id)
                 raise
 
-        # Fire lifecycle hook
+        # Fire lifecycle hook + logging
         agent = self.get_agent(agent_id)
         serving_task = agent.tasks[0] if agent.tasks else None
+        if serving_task:
+            self.metrics.record_task_cost(agent_id, serving_task.weight)
+            scores = self._scorer.compute_load_scores()
+            loco_log.emit_grant(
+                tick=self._logical_tick,
+                agent_id=agent_id,
+                task=serving_task,
+                score=scores.get(agent_id, 0.0),
+                queue_depth=agent.queue_depth_weighted,
+                dmax=agent.dmax,
+                resource_name=self.resource.name,
+                utilization=self.resource.utilization,
+                cumulative_cost=self.metrics.agent_cost(agent_id),
+            )
         if self.on_task_started and serving_task:
             self.on_task_started(agent_id, serving_task)
 
@@ -190,7 +214,15 @@ class AsyncLOCOScheduler:
             async with self.resource.held_by(agent_id):
                 yield
         finally:
-            # Fire completion hook
+            # Fire completion hook + logging
+            if serving_task:
+                loco_log.emit_release(
+                    tick=self._logical_tick,
+                    agent_id=agent_id,
+                    task=serving_task,
+                    resource_name=self.resource.name,
+                    utilization=self.resource.utilization,
+                )
             if self.on_task_completed and serving_task:
                 self.on_task_completed(agent_id, serving_task, None)
 
@@ -235,9 +267,23 @@ class AsyncLOCOScheduler:
                 await self.resource.cancel_waiter(agent_id)
                 raise
 
-        # Fire lifecycle hook
+        # Fire lifecycle hook + logging
         agent = self.get_agent(agent_id)
         serving_task = agent.tasks[0] if agent.tasks else None
+        if serving_task:
+            self.metrics.record_task_cost(agent_id, serving_task.weight)
+            scores = self._scorer.compute_load_scores()
+            loco_log.emit_grant(
+                tick=self._logical_tick,
+                agent_id=agent_id,
+                task=serving_task,
+                score=scores.get(agent_id, 0.0),
+                queue_depth=agent.queue_depth_weighted,
+                dmax=agent.dmax,
+                resource_name=self.resource.name,
+                utilization=self.resource.utilization,
+                cumulative_cost=self.metrics.agent_cost(agent_id),
+            )
         if self.on_task_started and serving_task:
             self.on_task_started(agent_id, serving_task)
 
@@ -255,9 +301,17 @@ class AsyncLOCOScheduler:
         handle._released = True
         self._active_handles.pop(handle.handle_id, None)
 
-        # Fire completion hook
+        # Fire completion hook + logging
         agent = self.get_agent(handle.agent_id)
         serving_task = agent.tasks[0] if agent.tasks else None
+        if serving_task:
+            loco_log.emit_release(
+                tick=self._logical_tick,
+                agent_id=handle.agent_id,
+                task=serving_task,
+                resource_name=self.resource.name,
+                utilization=self.resource.utilization,
+            )
         if self.on_task_completed and serving_task:
             self.on_task_completed(handle.agent_id, serving_task, None)
 
