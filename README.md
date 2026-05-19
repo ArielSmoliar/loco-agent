@@ -272,24 +272,23 @@ LOCO-Agent doesn't replace your framework. It wraps the resource calls via frame
 ```mermaid
 graph TD
     DEV["Developer's agent code\n(unchanged)"] --> HOOK["Framework fires hook\n(on_llm_start / before_model_callback)"]
-    HOOK --> ADAPT
+    HOOK --> S1
 
-    subgraph ADAPT["LOCO Adapter"]
-        direction TB
-        S1["1. Estimate token cost\n(from prompt + model tier)"]
-        S2["2. Create Task(weight=cost)"]
-        S3["3. Submit to scheduler"]
-        S4["4. Acquire resource\n(blocks until L(i) wins)"]
-        S1 --> S2 --> S3 --> S4
-    end
+    S1["1. Estimate token cost\n(from prompt + model tier)"] --> S2["2. Create Task(weight=cost)"]
+    S2 --> S3["3. Submit to scheduler"]
+    S3 --> S4["4. Acquire resource\n(blocks until L(i) wins)"]
 
-    ADAPT --> LLM["LLM call fires"]
+    S4 --> LLM["LLM call fires"]
     LLM --> DONE["Framework completion hook\n(on_llm_end / after_model_callback)"]
     DONE --> REL["Adapter calls release()\nScheduler re-evaluates all waiters"]
 
     style DEV fill:#6c757d,color:#fff,stroke:#6c757d
     style HOOK fill:#6c757d,color:#fff,stroke:#6c757d
-    style LLM fill:#e65100,color:#fff,stroke:#e65100
+    style S1 fill:#1565c0,color:#fff,stroke:#1565c0
+    style S2 fill:#1565c0,color:#fff,stroke:#1565c0
+    style S3 fill:#1565c0,color:#fff,stroke:#1565c0
+    style S4 fill:#1565c0,color:#fff,stroke:#1565c0
+    style LLM fill:#b71c1c,color:#fff,stroke:#b71c1c
     style DONE fill:#6c757d,color:#fff,stroke:#6c757d
     style REL fill:#2e7d32,color:#fff,stroke:#2e7d32
 ```
