@@ -5,8 +5,8 @@
 LOCO-Agent is a load-aware scheduling layer for multi-agent systems. It sits underneath LangGraph, CrewAI, Google ADK, OpenAI Agents SDK, or any Python agent framework and decides which agent gets the shared resource next -- based on queue depth, wait time, and task cost.
 
 - **No priority rules needed** -- agents with urgent work escalate automatically via the load function
-- **Proven convergence** -- derived from a [2011 wireless networks thesis](https://en.wikipedia.org/wiki/Contention-based_protocol), validated across 4 production scenarios
-- **One equation** -- `L(i) = alpha * (queue_depth) + (1 - alpha) * (wait_time)`
+- **Proven convergence** -- derived from a [2011 wireless networks thesis](https://en.wikipedia.org/wiki/Contention-based_protocol), validated across 4 production scenarios (120 tests)
+- **One equation** -- `L(i) = alpha * (Qi / max Qj) + (1 - alpha) * (Dmax_i / max Dmax_j)`
 - **Framework-agnostic** -- register any async function as an agent; schedule across frameworks simultaneously
 
 > AGPL-3.0 -- open core from day one.
@@ -24,18 +24,18 @@ Organizations deploying agents at scale hit three problems no framework solves:
 LOCO-Agent solves all three with one layer underneath your existing frameworks.
 
 ```mermaid
-graph TB
-    subgraph LOCO["LOCO-Agent (load-aware scheduler)"]
+graph TD
+    subgraph LOCO["LOCO-Agent"]
         direction TB
-        LC["LangChain\nAdapter"]
-        SCORE["L(i) scores"]
-        ADK["ADK\nAdapter"]
-        LC <-->|"L(i)"| SCORE
-        SCORE <-->|"L(i)"| ADK
-        LC --> RES
-        ADK --> RES
-        RES["Shared Resource Pool\n(LLM slots, DB, GPU)"]
+        LC["LangChain\nAdapter"] --> SCORE["Scheduler\nL(i) scoring"]
+        ADK["ADK\nAdapter"] --> SCORE
+        SCORE --> RES["Shared Resource Pool\n(LLM slots, DB, GPU)"]
     end
+
+    style LC fill:#1565c0,color:#fff,stroke:#1565c0
+    style ADK fill:#1565c0,color:#fff,stroke:#1565c0
+    style SCORE fill:#e65100,color:#fff,stroke:#e65100
+    style RES fill:#2e7d32,color:#fff,stroke:#2e7d32
 ```
 
 ## Quick Start
@@ -74,10 +74,12 @@ L(i) = alpha * (Qi / max Qj) + (1 - alpha) * (Dmax_i / max Dmax_j)
 | Term | Meaning |
 |------|---------|
 | `Qi` | Weighted queue depth -- sum of task costs in agent i's queue |
-| `Dmax_i` | Age of the oldest waiting task in agent i's queue |
-| `alpha` | Tuning knob: 1 = throughput-optimized, 0 = latency-optimized |
+| `Dmax_i` | Age of the oldest waiting task in agent i's queue (measured in ticks) |
+| `alpha` | Tuning knob: 0.0 = latency-optimized, 0.5 = throughput-optimized |
 
 Both terms are **normalized across all competing agents** -- relative priority, not absolute cost. An agent with Q=10 when everyone else has Q=10 scores the same as Q=1 when everyone else has Q=1.
+
+**What's a tick?** A tick is one unit of work completed -- not wall clock time. In the async scheduler, each `release()` increments the tick counter and ages all waiting tasks by 1. Under heavy load, ticks fire fast. Under low load, ticks fire slowly. Priority only shifts when there's actual contention.
 
 ### Tuning alpha
 
@@ -156,11 +158,12 @@ await scheduler.submit_task("fraud-detector", Task(weight=3.0, task_type="gpt4o"
 await scheduler.submit_task("ticket-router", Task(weight=1.0, task_type="haiku"))
 ```
 
-### Cross-agent spend visibility
+### Cross-agent spend visibility (planned)
 
-Every scheduling decision logs the task cost. The metrics API gives the org-level view that no single framework provides:
+Every scheduling decision will log the task cost. The metrics API will give the org-level view that no single framework provides:
 
 ```python
+# v0.2 planned -- not yet implemented
 scheduler.metrics.cost_by_agent()
 # {"fraud-detector": 847.5, "webhook-handler": 42.0, "ticket-router": 115.0,
 #  "rag-pipeline": 315.0, "summarizer": 203.0}
@@ -169,7 +172,7 @@ scheduler.metrics.total_cost()
 # 1522.5
 ```
 
-This answers the questions that matter at scale: which agents are consuming the most tokens? Is high-value work getting served first? Which team's agents are driving spend?
+This will answer the questions that matter at scale: which agents are consuming the most tokens? Is high-value work getting served first? Which team's agents are driving spend?
 
 ### Self-tuning priority
 
@@ -184,7 +187,7 @@ The load function replaces manual priority rules with math that adapts automatic
 At app startup, the platform engineer tells the scheduler which agents exist and what resource they share. Each agent gets its own task queue -- the scheduler reads queue depth and wait time directly from it.
 
 ```python
-from loco import Agent, Task, LOCOScheduler, SharedResource
+from loco import Agent, Task, AsyncLOCOScheduler, SharedResource
 
 # Define the shared resource (e.g. LLM API with 3 concurrent slots)
 llm_api = SharedResource(name="llm_api", capacity=3)
@@ -364,7 +367,7 @@ The key: both frameworks point to the same scheduler instance.
 
 ```python
 # One scheduler, one resource pool, all agents compete through L(i)
-scheduler = LOCOScheduler(agents, llm_api, optimize_for="balanced")
+scheduler = AsyncLOCOScheduler(all_agents, llm_api, optimize_for="balanced")
 
 # LangChain agents registered as "rag-pipeline", "qa-chain", "summarizer"
 # ADK agents registered as "webhook-handler", "support-bot", "billing"
@@ -375,26 +378,14 @@ When ADK webhooks spike, their Dmax grows. The scheduler naturally deprioritizes
 
 ## Architecture
 
-```mermaid
-graph LR
-    subgraph public["Public API (async)"]
-        ACQ["acquire(agent)"]
-        REL["release(agent)"]
-        SHUT["shutdown(timeout)"]
-    end
+| Public API (async) | Calls internally |
+|--------------------|------------------|
+| `acquire(agent_id)` | `compute_load_scores()` → `select_agent()` → grant or wait |
+| `release(agent_id)` | tick++ → age tasks → re-score waiters → grant next |
+| `submit_task(agent_id, task)` | Enqueue task to agent |
+| `shutdown(timeout)` | Cancel waiters, drain in-flight |
 
-    subgraph internal["Internal (sync)"]
-        CLS["compute_load_scores()"]
-        SEL["select_agent(scores)"]
-        STEP["_step() ← tests"]
-    end
-
-    ACQ --> CLS
-    REL --> SEL
-    CLS --> SEL
-```
-
-The async `acquire()`/`release()` API is the core primitive. The adapter layer wraps this with framework-specific hooks. The scheduler never knows which framework produced the agent.
+The async `acquire()`/`release()` API is the core primitive. The adapter layer wraps this with framework-specific hooks. The scheduler never knows which framework produced the agent. The sync scoring core (`compute_load_scores`, `select_agent`, `_step`) is used internally and exposed for testing.
 
 See [PLAN.md](PLAN.md) for the full build plan, mermaid diagrams, and day-by-day breakdown.
 
@@ -419,12 +410,11 @@ The thesis proved convergence for wireless nodes competing for a shared channel.
 - [x] Load function validation (simulation notebook)
 - [x] Build plan and API spec
 - [x] Package scaffolding + Task/Agent extraction
-- [x] Scheduler scoring core (compute_load_scores, select_agent, _step)
-- [x] Async resource + event loop (SharedResource, acquire/release)
+- [x] Scheduler scoring core (`compute_load_scores`, `select_agent`, `_step`)
+- [x] Async resource + event loop (`SharedResource`, `acquire`/`release`)
 - [x] Async scheduler integration (backpressure, cancellation, lifecycle hooks)
-- [x] `optimize_for` API ("latency" / "balanced" / "throughput")
-- [x] Scenario 1 burst replay against async scheduler (101 tests passing)
-- [ ] Full scenario validation (all 4 scenarios against production code)
+- [x] `optimize_for` API (`"latency"` / `"balanced"` / `"throughput"`)
+- [x] Full scenario validation — 4 scenarios, 120 tests passing
 - [ ] Vanilla adapter + dynamic agent registration
 - [ ] Observability (structured JSON scheduling log)
 - [ ] Sandbox CLI
@@ -434,7 +424,6 @@ The thesis proved convergence for wireless nodes competing for a shared channel.
 - [ ] Google ADK adapter
 - [ ] CrewAI adapter
 - [ ] OpenAI Agents SDK adapter
-- [ ] Dynamic agent registration (agents spinning up/down at runtime)
 - [ ] Multi-resource contention
 - [ ] Adaptive alpha tuning (renormalization)
 - [ ] A2A protocol integration
@@ -444,6 +433,14 @@ The thesis proved convergence for wireless nodes competing for a shared channel.
 ```bash
 git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"       # installs pytest, pytest-asyncio, ruff
+pytest                         # 120 tests, all should pass
+```
+
+To explore the simulation notebook:
+
+```bash
 pip install numpy matplotlib jupyter
 jupyter notebook simulation/loco_simulation.ipynb
 ```
