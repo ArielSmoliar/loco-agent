@@ -21,4 +21,4 @@ __all__ = [
     "jains_fairness",
     "SchedulerMetrics",
 ]
-__version__ = "0.1.0dev0"
+__version__ = "0.2.0dev0"

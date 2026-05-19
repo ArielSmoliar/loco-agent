@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "loco-agent"
-version = "0.1.0dev0"
+version = "0.2.0dev0"
 description = "Load-aware scheduling layer for multi-agent systems"
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -32,7 +32,11 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
+    "numpy>=1.24",
 ]
+anthropic = ["anthropic>=0.40"]
+openai = ["openai>=1.50"]
+all = ["loco-agent[anthropic,openai]"]
 
 [project.urls]
 Homepage = "https://github.com/ArielSmoliar/loco-agent"
