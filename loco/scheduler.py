@@ -10,6 +10,12 @@ from typing import Any
 from loco.agent import Agent
 from loco.task import Task
 
+OPTIMIZE_FOR_ALPHA = {
+    "latency": 0.0,
+    "balanced": 0.25,
+    "throughput": 0.5,
+}
+
 
 @dataclass
 class StepResult:
@@ -39,15 +45,32 @@ class LOCOScheduler:
         self,
         agents: list[Agent],
         *,
-        alpha: float = 0.25,
+        alpha: float | None = None,
+        optimize_for: str | None = None,
         max_history: int = 10_000,
         seed: int | None = None,
     ) -> None:
-        if not 0.0 <= alpha <= 1.0:
-            raise ValueError(f"alpha must be in [0.0, 1.0], got {alpha}")
+        if alpha is not None and optimize_for is not None:
+            raise ValueError(
+                "Pass alpha or optimize_for, not both"
+            )
+
+        if optimize_for is not None:
+            if optimize_for not in OPTIMIZE_FOR_ALPHA:
+                raise ValueError(
+                    f"optimize_for must be one of {list(OPTIMIZE_FOR_ALPHA)}, "
+                    f"got {optimize_for!r}"
+                )
+            resolved_alpha = OPTIMIZE_FOR_ALPHA[optimize_for]
+        elif alpha is not None:
+            if not 0.0 <= alpha <= 1.0:
+                raise ValueError(f"alpha must be in [0.0, 1.0], got {alpha}")
+            resolved_alpha = alpha
+        else:
+            resolved_alpha = OPTIMIZE_FOR_ALPHA["balanced"]
 
         self.agents = {a.agent_id: a for a in agents}
-        self.alpha = alpha
+        self.alpha = resolved_alpha
         self.max_history = max_history
         self.rng = random.Random(seed)
         self.tick = 0

@@ -36,7 +36,8 @@ class AsyncLOCOScheduler:
         agents: list[Agent],
         resource: SharedResource,
         *,
-        alpha: float = 0.25,
+        alpha: float | None = None,
+        optimize_for: str | None = None,
         max_waiters: int = 100,
         seed: int | None = None,
         on_task_started: Callable[[str, Task], None] | None = None,
@@ -44,7 +45,9 @@ class AsyncLOCOScheduler:
     ) -> None:
         self.resource = resource
         self.max_waiters = max_waiters
-        self._scorer = LOCOScheduler(agents, alpha=alpha, seed=seed)
+        self._scorer = LOCOScheduler(
+            agents, alpha=alpha, optimize_for=optimize_for, seed=seed
+        )
         self._lock = asyncio.Lock()
         self._shutting_down = False
         self._logical_tick = 0

@@ -23,19 +23,19 @@ Organizations deploying agents at scale hit three problems no framework solves:
 
 LOCO-Agent solves all three with one layer underneath your existing frameworks.
 
-```
-                  ┌─────────────────────────────┐
-                  │         LOCO-Agent           │
-                  │   (load-aware scheduler)     │
-                  │                              │
-                  │  LangChain ◄──L(i)──► ADK   │
-                  │   Adapter    scores   Adapter│
-                  │       │                │     │
-                  │  ┌────▼────────────────▼──┐  │
-                  │  │  Shared Resource Pool   │  │
-                  │  │  (LLM slots, DB, GPU)   │  │
-                  │  └────────────────────────┘  │
-                  └─────────────────────────────┘
+```mermaid
+graph TB
+    subgraph LOCO["LOCO-Agent (load-aware scheduler)"]
+        direction TB
+        LC["LangChain\nAdapter"]
+        SCORE["L(i) scores"]
+        ADK["ADK\nAdapter"]
+        LC <-->|"L(i)"| SCORE
+        SCORE <-->|"L(i)"| ADK
+        LC --> RES
+        ADK --> RES
+        RES["Shared Resource Pool\n(LLM slots, DB, GPU)"]
+    end
 ```
 
 ## Quick Start
@@ -88,6 +88,53 @@ Both terms are **normalized across all competing agents** -- relative priority, 
 | `"throughput"` | 0.5 | Prioritize agents with the deepest backlog | Batch processing, ETL |
 
 > **Do not use alpha > 0.5 in production.** The simulation proves that alpha >= 0.75 causes starvation -- some agents complete zero tasks. The Dmax term is load-bearing for fairness.
+
+## What the Scheduler Sees
+
+The scheduler is deliberately decoupled from agent internals. It does not know which model an agent uses, what framework runs it, or how many tokens a call will consume. All of that knowledge is compressed into a single number -- task `weight` -- by the adapter or caller. The scheduler then derives everything it needs from queue state.
+
+### Parameter flow
+
+| Layer | Parameter | What it is | Source |
+|-------|-----------|------------|--------|
+| **Task** | `weight` | Cost proxy (1=cheap, 3=expensive) | Adapter or caller sets at submit time |
+| **Task** | `age` | Ticks spent waiting in queue | Scheduler auto-increments on each release |
+| **Agent** | `Qi` | Weighted queue depth = `sum(task.weight)` | Derived from task queue |
+| **Agent** | `Dmax` | Oldest waiting task = `max(task.age)` | Derived from task queue |
+| **System** | `alpha` | Latency vs throughput tradeoff | Config (`optimize_for`) |
+| **System** | `capacity` | Concurrent resource slots | Config (`SharedResource`) |
+| **System** | `max_waiters` | Backpressure limit | Config (default 100) |
+
+### What this means
+
+**The scheduler never asks "what are you?"** It asks "how loaded are you?" and "how long have you been waiting?" -- then decides who goes next. This is the key design choice: agent metadata (model, framework, cost profile) is translated into task weight *before* it reaches the scheduler.
+
+**Without an adapter**, the caller must set `weight` manually on each task. The scheduler still works -- it just treats unweighted tasks as `weight=1.0`, losing cost-awareness. You get fair scheduling by queue depth and wait time, but every task looks equally expensive.
+
+**With an adapter**, the translation happens automatically. The adapter intercepts framework hooks (e.g., `on_llm_start`), reads the model name and prompt, computes weight, and submits to the scheduler. The developer's code never changes.
+
+```mermaid
+graph LR
+    DEV["Developer's\nagent code"] --> HOOK["Framework\nhook fires"]
+    HOOK --> ADAPT["Adapter:\nmodel=opus → weight=5.0"]
+    ADAPT --> SUBMIT["scheduler.submit_task()"]
+    SUBMIT --> SCHED["Scheduler sees:\nQi = 5.0, Dmax = 0\n(no idea it's Opus)"]
+
+    style ADAPT fill:#fff3e0,stroke:#e65100
+    style SCHED fill:#e8f5e9,stroke:#2e7d32
+```
+
+### What the scheduler does NOT know
+
+These are intentionally outside the scheduler's scope in v0.1:
+
+- **Model name or tier** -- abstracted into weight
+- **Token budget or spend limit** -- visibility only, not enforcement (planned for v0.2)
+- **Per-agent SLA or latency target** -- fairness emerges from Dmax, not from targets
+- **Rate limits** -- handled by the resource capacity, not per-agent
+- **Framework identity** -- a LangChain agent and an ADK agent are indistinguishable
+
+This separation keeps the scoring function clean: `L(i) = alpha * (Qi / max Qj) + (1 - alpha) * (Dmax_i / max Dmax_j)` works the same whether it's scheduling 3 agents or 300, across one framework or five.
 
 ## Token Management
 
@@ -145,8 +192,8 @@ agents = [
     Agent(agent_id="summarizer", agent_type="batch"),
 ]
 
-# Create the scheduler -- it now owns these agents
-scheduler = LOCOScheduler(agents, llm_api, optimize_for="balanced")
+# Create the scheduler -- three words instead of a thesis chapter
+scheduler = AsyncLOCOScheduler(agents, llm_api, optimize_for="balanced")
 ```
 
 ### Step 2: Submit tasks as work arrives
@@ -175,41 +222,70 @@ async with scheduler.acquire("webhook-handler"):
 
 That's the full lifecycle: register, submit, acquire, release. The scheduler handles priority, fairness, and contention automatically.
 
+### Contention Resolution
+
+When multiple agents call `acquire()` and the resource is full, the scheduler resolves contention through a score-and-grant cycle derived from the [LOCO-MAC protocol](https://en.wikipedia.org/wiki/Contention-based_protocol):
+
+```mermaid
+sequenceDiagram
+    participant A as Agent A (L=0.9)
+    participant B as Agent B (L=0.6)
+    participant C as Agent C (L=0.3)
+    participant S as Scheduler
+    participant R as Resource (capacity=1)
+
+    A->>S: acquire()
+    S->>R: slot available → grant A
+    B->>S: acquire()
+    S-->>B: capacity full → wait
+    C->>S: acquire()
+    S-->>C: capacity full → wait
+
+    Note over B,C: Tasks age each tick (Dmax grows)
+
+    A->>S: release()
+    S->>S: tick++ · age tasks · re-score
+    Note over S: B: L=0.7 · C: L=0.5
+    S->>R: grant B (highest)
+
+    B->>S: release()
+    S->>S: tick++ · age tasks · re-score
+    S->>R: grant C (only waiter)
+```
+
+**Key properties:**
+
+- **Scoring happens at grant time, not request time.** An agent that registered late but has high Dmax still wins. This prevents priority inversion.
+- **Not FIFO.** The wait queue is re-scored on every release. An agent that joined the queue second can be granted first if its load score is higher.
+- **Starvation-proof.** The Dmax term grows every tick an agent waits. Even a low-backlog agent will eventually cross over higher-backlog agents -- urgency emerges from waiting, not from manual priority rules.
+- **Backpressure.** If the wait queue exceeds `max_waiters` (default 100), new `acquire()` calls raise `BackpressureError` instead of piling up unboundedly.
+- **Guaranteed release.** The `async with` context manager ensures the resource is freed even if the agent raises an exception, preventing deadlock from crashed agents.
+
 ## Framework Integration
 
 LOCO-Agent doesn't replace your framework. It wraps the resource calls via framework-specific adapters. The adapter sits between the framework and the scheduler -- the developer's agents run unchanged.
 
-```
-Developer's agent code (unchanged)
-    │
-    ▼
-Framework fires hook ─────────────────────────────────┐
-(on_llm_start / before_model_callback)                │
-    │                                                  │
-    ▼                                                  │
-┌─────────────────────────────────┐                   │
-│         LOCO Adapter            │                   │
-│                                 │                   │
-│  1. Estimate token cost         │                   │
-│     (from prompt + model tier)  │                   │
-│                                 │                   │
-│  2. Create Task(weight=cost)    │                   │
-│                                 │                   │
-│  3. Submit to scheduler         │                   │
-│                                 │                   │
-│  4. Acquire resource            │                   │
-│     (blocks until L(i) wins)    │                   │
-└────────────┬────────────────────┘                   │
-             │                                         │
-             ▼                                         │
-  LLM call fires ────────────────────────────────────►│
-             │                                         │
-             ▼                                         │
-  Framework fires completion hook ◄───────────────────┘
-  (on_llm_end / after_model_callback)
-             │
-             ▼
-  Adapter calls release() → scheduler re-evaluates all waiters
+```mermaid
+graph TD
+    DEV["Developer's agent code\n(unchanged)"] --> HOOK["Framework fires hook\n(on_llm_start / before_model_callback)"]
+    HOOK --> ADAPT
+
+    subgraph ADAPT["LOCO Adapter"]
+        direction TB
+        S1["1. Estimate token cost\n(from prompt + model tier)"]
+        S2["2. Create Task(weight=cost)"]
+        S3["3. Submit to scheduler"]
+        S4["4. Acquire resource\n(blocks until L(i) wins)"]
+        S1 --> S2 --> S3 --> S4
+    end
+
+    ADAPT --> LLM["LLM call fires"]
+    LLM --> DONE["Framework fires completion hook\n(on_llm_end / after_model_callback)"]
+    DONE --> REL["Adapter calls release()\nScheduler re-evaluates all waiters"]
+
+    style ADAPT fill:#e3f2fd,stroke:#1565c0
+    style LLM fill:#fff3e0,stroke:#e65100
+    style REL fill:#e8f5e9,stroke:#2e7d32
 ```
 
 ### How the adapter knows the token cost
@@ -294,12 +370,23 @@ When ADK webhooks spike, their Dmax grows. The scheduler naturally deprioritizes
 
 ## Architecture
 
-```
-Public API (async)            Internal (sync)
-─────────────────             ───────────────
-acquire(resource, agent)  →   compute_load_scores()
-release(resource, agent)  →   select_agent(scores)
-shutdown(timeout)             _step()  ← used by tests
+```mermaid
+graph LR
+    subgraph public["Public API (async)"]
+        ACQ["acquire(agent)"]
+        REL["release(agent)"]
+        SHUT["shutdown(timeout)"]
+    end
+
+    subgraph internal["Internal (sync)"]
+        CLS["compute_load_scores()"]
+        SEL["select_agent(scores)"]
+        STEP["_step() ← tests"]
+    end
+
+    ACQ --> CLS
+    REL --> SEL
+    CLS --> SEL
 ```
 
 The async `acquire()`/`release()` API is the core primitive. The adapter layer wraps this with framework-specific hooks. The scheduler never knows which framework produced the agent.
@@ -327,9 +414,13 @@ The thesis proved convergence for wireless nodes competing for a shared channel.
 - [x] Load function validation (simulation notebook)
 - [x] Build plan and API spec
 - [x] Package scaffolding + Task/Agent extraction
-- [ ] Async scheduler with acquire/release
-- [ ] Scenario validation against production code
-- [ ] Vanilla adapter + examples
+- [x] Scheduler scoring core (compute_load_scores, select_agent, _step)
+- [x] Async resource + event loop (SharedResource, acquire/release)
+- [x] Async scheduler integration (backpressure, cancellation, lifecycle hooks)
+- [x] `optimize_for` API ("latency" / "balanced" / "throughput")
+- [x] Scenario 1 burst replay against async scheduler (101 tests passing)
+- [ ] Full scenario validation (all 4 scenarios against production code)
+- [ ] Vanilla adapter + dynamic agent registration
 - [ ] Observability (structured JSON scheduling log)
 - [ ] Sandbox CLI
 

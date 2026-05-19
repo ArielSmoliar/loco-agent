@@ -2,7 +2,7 @@
 
 from loco.task import Task
 from loco.agent import Agent
-from loco.scheduler import LOCOScheduler, StepResult
+from loco.scheduler import LOCOScheduler, StepResult, OPTIMIZE_FOR_ALPHA
 from loco.resource import SharedResource
 from loco.async_scheduler import AsyncLOCOScheduler, BackpressureError, ShutdownError
 from loco.metrics import jains_fairness
@@ -12,6 +12,7 @@ __all__ = [
     "Agent",
     "LOCOScheduler",
     "StepResult",
+    "OPTIMIZE_FOR_ALPHA",
     "SharedResource",
     "AsyncLOCOScheduler",
     "BackpressureError",
