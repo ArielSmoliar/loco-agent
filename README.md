@@ -502,4 +502,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide, or the [Evaluation Gu
 
 AGPL-3.0. See [LICENSE](LICENSE) for details.
 
-Enterprise licensing available -- contact [ariel@loco-agent.dev](mailto:ariel@loco-agent.dev).
+Enterprise licensing available -- contact [ariel.smoliar@gmail.com](mailto:ariel.smoliar@gmail.com).
