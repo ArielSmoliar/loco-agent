@@ -5,7 +5,7 @@
 LOCO-Agent is a load-aware scheduling layer for multi-agent systems. It sits underneath LangGraph, CrewAI, Google ADK, OpenAI Agents SDK, or any Python agent framework and decides which agent gets the shared resource next -- based on queue depth, wait time, and task cost.
 
 - **No priority rules needed** -- agents with urgent work escalate automatically via the load function
-- **Proven convergence** -- derived from a wireless networks thesis, validated across 4 production scenarios (167 tests)
+- **Proven convergence** -- derived from a [2011 wireless networks thesis](https://en.wikipedia.org/wiki/Contention-based_protocol), validated across 4 production scenarios (254 tests)
 - **One equation** -- `L(i) = alpha * (Qi / max Qj) + (1 - alpha) * (Dmax_i / max Dmax_j)`
 - **Framework-agnostic** -- register any async function as an agent; schedule across frameworks simultaneously
 
