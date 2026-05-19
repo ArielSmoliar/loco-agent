@@ -35,9 +35,12 @@ class SchedulerMetrics:
         scheduler.metrics.total_cost()
     """
 
-    def __init__(self, scheduler: AsyncLOCOScheduler) -> None:
+    def __init__(self, scheduler: AsyncLOCOScheduler, ema_alpha: float = 0.3) -> None:
         self._scheduler = scheduler
         self._cumulative_cost: dict[str, float] = {}
+        self._actual_tokens: dict[str, list[int]] = {}
+        self._ema_weights: dict[str, float] = {}
+        self._ema_alpha = ema_alpha  # EMA smoothing factor (higher = more recent)
 
     def record_task_cost(self, agent_id: str, cost: float) -> None:
         """Record a task's cost for the given agent. Called internally on grant."""
@@ -86,3 +89,49 @@ class SchedulerMetrics:
             agent_id: len(agent.completed_tasks)
             for agent_id, agent in self._scheduler.agents.items()
         }
+
+    # --- Empirical cost tracking ---
+
+    def record_actual_tokens(
+        self, agent_id: str, task: "Task", actual_tokens: int
+    ) -> None:
+        """Record actual token usage after a call completes.
+
+        Updates the EMA weight estimate for the task's type. Future calls
+        with the same task_type will use the adjusted weight instead of
+        the static model tier.
+
+        Args:
+            agent_id: The agent that executed the task.
+            task: The task that was completed.
+            actual_tokens: Actual total tokens consumed (input + output).
+        """
+        self._actual_tokens.setdefault(agent_id, []).append(actual_tokens)
+
+        # Update EMA for this task type
+        task_type = task.task_type
+        if task_type in self._ema_weights:
+            prev = self._ema_weights[task_type]
+            self._ema_weights[task_type] = (
+                self._ema_alpha * actual_tokens
+                + (1 - self._ema_alpha) * prev
+            )
+        else:
+            self._ema_weights[task_type] = float(actual_tokens)
+
+    def empirical_weight(self, task_type: str) -> float | None:
+        """Get the EMA-adjusted weight for a task type.
+
+        Returns None if no empirical data exists yet (use static tier).
+        """
+        return self._ema_weights.get(task_type)
+
+    def actual_tokens_by_agent(self) -> dict[str, list[int]]:
+        """Raw actual token counts per agent, in order of recording."""
+        return dict(self._actual_tokens)
+
+    def total_actual_tokens(self) -> int:
+        """Total actual tokens consumed across all agents."""
+        return sum(
+            sum(tokens) for tokens in self._actual_tokens.values()
+        )
