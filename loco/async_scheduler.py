@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable
 from uuid import uuid4
 
+from loco import logging as loco_log
 from loco.adaptive import AdaptiveAlphaTuner
 from loco.agent import Agent
-from loco import logging as loco_log
 from loco.metrics import SchedulerMetrics
 from loco.resource import SharedResource
 from loco.scheduler import LOCOScheduler

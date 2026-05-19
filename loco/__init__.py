@@ -1,12 +1,12 @@
 """LOCO-Agent: Load-Conscious Orchestration for Concurrent Operations."""
 
-from loco.task import Task
-from loco.agent import Agent
-from loco.scheduler import LOCOScheduler, StepResult, OPTIMIZE_FOR_ALPHA
-from loco.resource import SharedResource
-from loco.async_scheduler import AsyncLOCOScheduler, AcquireHandle, BackpressureError, ShutdownError
 from loco.adaptive import AdaptiveAlphaTuner
-from loco.metrics import jains_fairness, SchedulerMetrics
+from loco.agent import Agent
+from loco.async_scheduler import AcquireHandle, AsyncLOCOScheduler, BackpressureError, ShutdownError
+from loco.metrics import SchedulerMetrics, jains_fairness
+from loco.resource import SharedResource
+from loco.scheduler import OPTIMIZE_FOR_ALPHA, LOCOScheduler, StepResult
+from loco.task import Task
 
 __all__ = [
     "Task",

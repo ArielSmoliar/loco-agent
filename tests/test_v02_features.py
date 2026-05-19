@@ -6,10 +6,9 @@ import asyncio
 import pytest
 
 from loco.a2a import A2ASchedulerAgent
-from loco.adaptive import AdaptiveAlphaTuner
 from loco.adapters.autogen import AutoGenAdapter
-from loco.adapters.aws_bedrock import BedrockAdapter, estimate_weight as bedrock_weight
-from loco.agent import Agent
+from loco.adapters.aws_bedrock import BedrockAdapter
+from loco.adapters.aws_bedrock import estimate_weight as bedrock_weight
 from loco.async_scheduler import AsyncLOCOScheduler
 from loco.budget import BudgetExceededError, BudgetManager
 from loco.multi_resource import ResourcePool

@@ -15,7 +15,6 @@ import json
 import logging
 from typing import Any
 
-from loco.agent import Agent
 from loco.task import Task
 
 logger = logging.getLogger("loco.scheduler")

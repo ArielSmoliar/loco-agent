@@ -9,7 +9,6 @@ from loco.async_scheduler import AsyncLOCOScheduler, BackpressureError, Shutdown
 from loco.resource import SharedResource
 from loco.task import Task
 
-
 # --- SharedResource unit tests ---
 
 

@@ -10,12 +10,10 @@ from loco.async_scheduler import AsyncLOCOScheduler
 from loco.resource import SharedResource
 from loco.task import Task
 from loco.testing import (
-    RunResult,
     SyncTestScheduler,
     mock_agent,
     mock_resource,
 )
-
 
 # ---------------------------------------------------------------------------
 # Structured JSON logging

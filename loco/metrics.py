@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from loco.async_scheduler import AsyncLOCOScheduler
+    from loco.task import Task
 
 
 def jains_fairness(values: list[float]) -> float:

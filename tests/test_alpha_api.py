@@ -5,8 +5,7 @@ import pytest
 from loco.agent import Agent
 from loco.async_scheduler import AsyncLOCOScheduler
 from loco.resource import SharedResource
-from loco.scheduler import LOCOScheduler, OPTIMIZE_FOR_ALPHA
-from loco.task import Task
+from loco.scheduler import OPTIMIZE_FOR_ALPHA, LOCOScheduler
 
 
 def _agents() -> list[Agent]:

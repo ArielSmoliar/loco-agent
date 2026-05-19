@@ -13,7 +13,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import sys
 
 import numpy as np
 
@@ -138,7 +137,7 @@ def print_results(sched: LOCOScheduler, scenario: str):
         print(f"No starvation — all {len(sched.agents)} agents served")
 
     # Recent scheduling decisions
-    print(f"\nLast 10 scheduling decisions:")
+    print("\nLast 10 scheduling decisions:")
     for h in list(sched.history)[-10:]:
         aid = h["served_agent_id"] or "(none)"
         print(f"  tick {h['tick']:4d}: {aid}")
@@ -182,7 +181,7 @@ def main():
         seed=args.seed,
     )
 
-    print(f"LOCO-Agent Sandbox")
+    print("LOCO-Agent Sandbox")
     print(f"Scenario: {args.scenario}")
     print(f"Alpha: {sched.alpha} (optimize_for={args.optimize_for or 'custom'})")
     print(f"Agents: {args.agents}, Ticks: {args.ticks}, Capacity: {args.capacity}")

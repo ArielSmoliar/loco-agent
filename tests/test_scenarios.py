@@ -6,13 +6,10 @@ tick-by-tick model. This is the quality gate — nothing ships if these fail.
 """
 
 import numpy as np
-import pytest
 
 from loco.agent import Agent
 from loco.metrics import jains_fairness
 from loco.scheduler import LOCOScheduler
-from loco.task import Task
-
 
 # ---------------------------------------------------------------------------
 # Scenario 2 — Fairness under sustained load

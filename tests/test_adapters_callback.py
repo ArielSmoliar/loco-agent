@@ -2,13 +2,13 @@
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any
 
 import pytest
 
-from loco.adapters.langchain import LOCOCallbackHandler, _extract_model
-from loco.adapters.google_adk import ADKAdapter, _estimate_weight as adk_weight
 from loco.adapters.crewai import CrewAIAdapter
+from loco.adapters.google_adk import ADKAdapter
+from loco.adapters.google_adk import _estimate_weight as adk_weight
+from loco.adapters.langchain import LOCOCallbackHandler, _extract_model
 from loco.async_scheduler import AsyncLOCOScheduler
 from loco.resource import SharedResource
 
@@ -115,7 +115,8 @@ class TestLangChainAdapter:
 
     def test_extract_model_from_serialized(self):
         assert _extract_model({"kwargs": {"model_name": "gpt-4o"}}) == "gpt-4o"
-        assert _extract_model({"kwargs": {"model": "claude-sonnet-4-20250514"}}) == "claude-sonnet-4-20250514"
+        model_id = "claude-sonnet-4-20250514"
+        assert _extract_model({"kwargs": {"model": model_id}}) == model_id
         assert _extract_model({"id": ["langchain", "openai", "gpt-4"]}) == "gpt-4"
 
 

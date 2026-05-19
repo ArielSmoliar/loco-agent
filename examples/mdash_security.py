@@ -12,7 +12,6 @@ no starvation for cheap tasks, expensive tasks escalate via Dmax.
 Run: python examples/mdash_security.py
 """
 
-import numpy as np
 
 from loco import Agent
 from loco.scheduler import LOCOScheduler
@@ -87,11 +86,11 @@ def main():
                   f"L={scores.get(aid, 0):.3f})")
 
     # Results
-    print(f"\nService by type:")
+    print("\nService by type:")
     for atype, count in service_by_type.items():
         print(f"  {atype}: {count}")
 
-    print(f"\nProver escalation (ticks after arrival):")
+    print("\nProver escalation (ticks after arrival):")
     for aid in sorted(prover_first_serve):
         wait = prover_first_serve[aid] - PROVER_SPIKE_TICK
         print(f"  {aid}: first served at tick {prover_first_serve[aid]} "

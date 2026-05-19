@@ -6,7 +6,7 @@ import pytest
 
 from loco.adapters.vanilla import VanillaAdapter
 from loco.agent import Agent
-from loco.async_scheduler import AcquireHandle, AsyncLOCOScheduler, BackpressureError
+from loco.async_scheduler import AcquireHandle, AsyncLOCOScheduler
 from loco.resource import SharedResource
 from loco.task import Task
 
@@ -297,8 +297,8 @@ class TestSplitAcquireRelease:
 
         # Simulate: before_model callback
         async def before_model(agent_name: str, model: str):
-            MODEL_COST = {"opus": 5.0, "haiku": 1.0}
-            weight = MODEL_COST.get(model, 1.0)
+            model_cost = {"opus": 5.0, "haiku": 1.0}
+            weight = model_cost.get(model, 1.0)
             await sched.submit_task(agent_name, Task(weight=weight))
             handle = await sched.acquire_start(agent_name)
             return handle

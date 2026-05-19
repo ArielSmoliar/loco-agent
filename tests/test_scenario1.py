@@ -19,7 +19,6 @@ from loco.async_scheduler import AsyncLOCOScheduler
 from loco.resource import SharedResource
 from loco.task import Task
 
-
 N_AGENTS = 8
 
 

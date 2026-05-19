@@ -2,17 +2,16 @@
 
 import asyncio
 from dataclasses import dataclass
-from typing import Any
 
 import pytest
 
-from loco.adapters.anthropic import AnthropicAdapter, estimate_weight as anthropic_weight
-from loco.adapters.openai import OpenAIAdapter, estimate_weight as openai_weight
-from loco.agent import Agent
+from loco.adapters.anthropic import AnthropicAdapter
+from loco.adapters.anthropic import estimate_weight as anthropic_weight
+from loco.adapters.openai import OpenAIAdapter
+from loco.adapters.openai import estimate_weight as openai_weight
 from loco.async_scheduler import AsyncLOCOScheduler
 from loco.resource import SharedResource
 from loco.task import Task
-
 
 # ---------------------------------------------------------------------------
 # Mock SDK clients

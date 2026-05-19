@@ -47,8 +47,8 @@ def run_fairness(alpha: float, seed: int = 42):
 
 def main():
     print(f"Fairness: {N_AGENTS} agents, {N_TICKS} ticks")
-    print(f"High-load (agents 0-4): lambda=0.4 tasks/tick")
-    print(f"Low-load  (agents 5-9): lambda=0.1 tasks/tick\n")
+    print("High-load (agents 0-4): lambda=0.4 tasks/tick")
+    print("Low-load  (agents 5-9): lambda=0.1 tasks/tick\n")
 
     for alpha in [0.0, 0.25, 0.5, 0.75, 1.0]:
         mean_waits, completions = run_fairness(alpha)
