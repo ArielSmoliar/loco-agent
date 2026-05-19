@@ -115,13 +115,17 @@ The scheduler is deliberately decoupled from agent internals. It does not know w
 
 ```mermaid
 graph LR
-    DEV["Developer's\nagent code"] --> HOOK["Framework\nhook fires"]
-    HOOK --> ADAPT["Adapter:\nmodel=opus → weight=5.0"]
-    ADAPT --> SUBMIT["scheduler.submit_task()"]
-    SUBMIT --> SCHED["Scheduler sees:\nQi = 5.0, Dmax = 0\n(no idea it's Opus)"]
+    DEV["Agent code"] -->|"calls LLM"| HOOK["Framework hook"]
+    HOOK -->|"model: opus\nprompt: 2k tokens"| ADAPT["LOCO Adapter"]
+    ADAPT -->|"weight = 5.0"| SCHED["Scheduler"]
 
-    style ADAPT fill:#fff3e0,stroke:#e65100
-    style SCHED fill:#e8f5e9,stroke:#2e7d32
+    ADAPT -.-|"translates"| NOTE["opus → 5.0\nsonnet → 2.0\nhaiku → 1.0"]
+
+    style DEV fill:#6c757d,color:#fff,stroke:#6c757d
+    style HOOK fill:#6c757d,color:#fff,stroke:#6c757d
+    style ADAPT fill:#e65100,color:#fff,stroke:#e65100
+    style SCHED fill:#2e7d32,color:#fff,stroke:#2e7d32
+    style NOTE fill:none,stroke:#aaa,stroke-dasharray:5 5,color:#aaa
 ```
 
 ### What the scheduler does NOT know
@@ -280,12 +284,14 @@ graph TD
     end
 
     ADAPT --> LLM["LLM call fires"]
-    LLM --> DONE["Framework fires completion hook\n(on_llm_end / after_model_callback)"]
+    LLM --> DONE["Framework completion hook\n(on_llm_end / after_model_callback)"]
     DONE --> REL["Adapter calls release()\nScheduler re-evaluates all waiters"]
 
-    style ADAPT fill:#e3f2fd,stroke:#1565c0
-    style LLM fill:#fff3e0,stroke:#e65100
-    style REL fill:#e8f5e9,stroke:#2e7d32
+    style DEV fill:#6c757d,color:#fff,stroke:#6c757d
+    style HOOK fill:#6c757d,color:#fff,stroke:#6c757d
+    style LLM fill:#e65100,color:#fff,stroke:#e65100
+    style DONE fill:#6c757d,color:#fff,stroke:#6c757d
+    style REL fill:#2e7d32,color:#fff,stroke:#2e7d32
 ```
 
 ### How the adapter knows the token cost
