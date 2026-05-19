@@ -40,22 +40,63 @@ graph TD
 
 ## Quick Start
 
-### Prerequisites
-
-- Python 3.10+
-- [Jupyter](https://jupyter.org/) (for the simulation notebook)
-
-### Install and run the simulation
+### Install
 
 ```bash
 git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
 python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+### Try it — 30 seconds
+
+```python
+import asyncio
+from loco import Agent, Task, AsyncLOCOScheduler, SharedResource
+
+async def main():
+    scheduler = AsyncLOCOScheduler(
+        [Agent(agent_id="urgent"), Agent(agent_id="batch")],
+        SharedResource("llm_api", capacity=1),
+        optimize_for="balanced",
+    )
+    # Batch agent has 5 pending tasks, urgent agent has 1
+    for _ in range(5):
+        await scheduler.submit_task("batch", Task(weight=1.0))
+    await scheduler.submit_task("urgent", Task(weight=3.0))
+
+    async def worker(agent_id, n):
+        for _ in range(n):
+            async with scheduler.acquire(agent_id):
+                scheduler.get_agent(agent_id).serve_oldest_task()
+                await asyncio.sleep(0)
+
+    await asyncio.gather(worker("urgent", 1), worker("batch", 5))
+    print(f"Cost: {scheduler.metrics.cost_by_agent()}")
+
+asyncio.run(main())
+```
+
+### See scheduling in action
+
+```bash
+python sandbox.py --scenario webhook_spike --optimize-for latency
+python sandbox.py --scenario burst --agents 10
+```
+
+### Evaluate with your framework
+
+See the [Evaluation Guide](docs/evaluation_guide.md) — copy-paste examples for Google ADK, Anthropic, OpenAI, AWS Bedrock, Azure/AutoGen, and LangChain. No API keys needed.
+
+### Simulation notebook
+
+```bash
 pip install numpy matplotlib jupyter
 jupyter notebook simulation/loco_simulation.ipynb
 ```
 
-### What you'll see
+### What the notebook shows
 
 The notebook validates the load function across three scenarios:
 
@@ -360,24 +401,26 @@ async with scheduler.acquire("analyst"):
     message = await client.messages.create(model="claude-sonnet-4-20250514", ...)
 ```
 
-### Per-call framework adapters (v0.2)
+### Per-call framework adapters (shipped)
 
-Frameworks like ADK and LangChain have callback hooks (`before_model_callback`, `on_llm_start`) that fire *per LLM call*. The split acquire/release API (`acquire_start()` / `release_handle()`) is shipped in v0.1 for this pattern. Framework-specific adapter classes that wire it up automatically are coming in v0.2:
+Frameworks like ADK and LangChain have callback hooks that fire *per LLM call*. The adapters wire into these automatically:
 
 ```python
-# v0.2 — adapter hooks into framework callbacks automatically
-# Developer's agent code is unchanged; adapter intercepts each LLM call
+from loco.adapters.google_adk import ADKAdapter
+from loco.adapters.langchain import LOCOCallbackHandler
 
-# Google ADK (via before_model_callback / after_model_callback)
+# Google ADK — adapter hooks into before/after model callbacks
 adapter = ADKAdapter(scheduler)
 agent = adk.Agent(name="support", model="gemini-2.0-flash",
                   before_model_callback=adapter.before_model,
                   after_model_callback=adapter.after_model)
 
-# LangChain (via BaseCallbackHandler)
-adapter = LangChainAdapter(scheduler)
-llm = ChatOpenAI(callbacks=[adapter.callback("rag-agent-1")])
+# LangChain — callback handler per agent
+callback = LOCOCallbackHandler(scheduler, agent_id="rag-pipeline")
+llm = ChatOpenAI(callbacks=[callback])
 ```
+
+All 7 adapters shipped: Anthropic, OpenAI, Google ADK, LangChain, CrewAI, AWS Bedrock, Azure/AutoGen. See the [Evaluation Guide](docs/evaluation_guide.md) for runnable examples per platform.
 
 ### Cross-framework scheduling
 
@@ -425,39 +468,23 @@ The thesis proved convergence for wireless nodes competing for a shared channel.
 ## Roadmap
 
 ### v0.1.0 (shipped)
-- [x] Load function validation (simulation notebook)
-- [x] Build plan and API spec
-- [x] Package scaffolding + Task/Agent extraction
-- [x] Scheduler scoring core (`compute_load_scores`, `select_agent`, `_step`)
-- [x] Async resource + event loop (`SharedResource`, `acquire`/`release`)
-- [x] Async scheduler integration (backpressure, cancellation, lifecycle hooks)
-- [x] `optimize_for` API (`"latency"` / `"balanced"` / `"throughput"`)
-- [x] Full scenario validation — 4 scenarios, 167 tests passing
-- [x] Split acquire/release API for callback-based frameworks
-- [x] Dynamic agent registration (auto-register on first contact)
-- [x] Vanilla adapter (reference implementation)
-- [x] Observability (structured JSON scheduling log + metrics API)
-- [x] Testing utilities (`SyncTestScheduler`, `mock_agent`, `mock_resource`)
-- [x] Sandbox CLI + 4 example scripts
-- [x] SDK integration test plans (7 platforms)
-- [x] CI (pytest + ruff on Python 3.10-3.12)
+- [x] Async scheduler with acquire/release, backpressure, cancellation
+- [x] `optimize_for` API, split acquire/release, dynamic agent registration
+- [x] Full scenario validation — 4 scenarios, structured JSON logging, metrics API
+- [x] Vanilla adapter, testing utilities, sandbox CLI, CI
 
-### v0.2 (planned)
+### v0.2.0 (shipped)
+- [x] Anthropic SDK adapter + OpenAI Agents SDK adapter
+- [x] LangChain adapter + Google ADK adapter + CrewAI adapter
+- [x] AWS Bedrock adapter + Azure / AutoGen adapter
+- [x] Empirical cost tracking (EMA-based weight adjustment)
+- [x] Adaptive alpha tuning (auto_tune=True)
+- [x] Multi-resource contention (deadlock-safe ResourcePool)
+- [x] Budget ceilings (per-agent spend limits with enforcement)
+- [x] A2A protocol integration (agent card, task submission, status)
+- [x] 254 tests passing across 7 platform adapters
 
 See [ROADMAP.md](ROADMAP.md) for the full phased plan.
-
-- [ ] Anthropic SDK adapter
-- [ ] OpenAI Agents SDK adapter
-- [ ] LangChain adapter
-- [ ] Google ADK adapter
-- [ ] CrewAI adapter
-- [ ] AWS Bedrock adapter
-- [ ] Azure / AutoGen adapter
-- [ ] Empirical cost tracking
-- [ ] Multi-resource contention
-- [ ] Adaptive alpha tuning
-- [ ] Budget ceilings
-- [ ] A2A protocol integration
 
 ## Contributing
 
@@ -465,18 +492,11 @@ See [ROADMAP.md](ROADMAP.md) for the full phased plan.
 git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"       # installs pytest, pytest-asyncio, ruff
-pytest                         # 167 tests, all should pass
+pip install -e ".[dev]"
+pytest                         # 254 tests, all should pass
 ```
 
-To explore the simulation notebook:
-
-```bash
-pip install numpy matplotlib jupyter
-jupyter notebook simulation/loco_simulation.ipynb
-```
-
-The most impactful contributions will be **framework adapters** -- each one extends LOCO-Agent's reach to a new ecosystem. See the integration examples above for the pattern.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide, or the [Evaluation Guide](docs/evaluation_guide.md) to try LOCO-Agent with your framework in 5 minutes.
 
 ## License
 
