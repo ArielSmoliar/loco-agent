@@ -5,6 +5,7 @@ from loco.agent import Agent
 from loco.scheduler import LOCOScheduler, StepResult, OPTIMIZE_FOR_ALPHA
 from loco.resource import SharedResource
 from loco.async_scheduler import AsyncLOCOScheduler, AcquireHandle, BackpressureError, ShutdownError
+from loco.adaptive import AdaptiveAlphaTuner
 from loco.metrics import jains_fairness, SchedulerMetrics
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     "AcquireHandle",
     "BackpressureError",
     "ShutdownError",
+    "AdaptiveAlphaTuner",
     "jains_fairness",
     "SchedulerMetrics",
 ]

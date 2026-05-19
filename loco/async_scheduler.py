@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable
 from uuid import uuid4
 
+from loco.adaptive import AdaptiveAlphaTuner
 from loco.agent import Agent
 from loco import logging as loco_log
 from loco.metrics import SchedulerMetrics
@@ -60,6 +61,7 @@ class AsyncLOCOScheduler:
         seed: int | None = None,
         on_task_started: Callable[[str, Task], None] | None = None,
         on_task_completed: Callable[[str, Task, Any], None] | None = None,
+        auto_tune: bool = False,
     ) -> None:
         self.resource = resource
         self.max_waiters = max_waiters
@@ -73,6 +75,9 @@ class AsyncLOCOScheduler:
         self.metrics = SchedulerMetrics(self)
         self.on_task_started = on_task_started
         self.on_task_completed = on_task_completed
+        self._tuner: AdaptiveAlphaTuner | None = (
+            AdaptiveAlphaTuner(self) if auto_tune else None
+        )
 
     @property
     def agents(self) -> dict[str, Agent]:
@@ -329,6 +334,10 @@ class AsyncLOCOScheduler:
             for agent in self.agents.values():
                 for task in agent.tasks:
                     task.age += 1
+
+            # Adaptive alpha tuning (if enabled)
+            if self._tuner:
+                self._tuner.update()
 
             # Re-score and grant to highest-priority waiter
             await self._grant_next_waiter()
