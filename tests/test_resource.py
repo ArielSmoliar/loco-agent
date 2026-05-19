@@ -223,11 +223,13 @@ async def test_async_submit_task():
     assert sched.agents["a1"].tasks[0].weight == 2.0
 
 
-async def test_async_submit_unknown_agent():
-    """submit_task raises ValueError for unknown agent."""
+async def test_async_submit_unknown_agent_auto_registers():
+    """submit_task auto-registers unknown agents (thesis: slaves announce by participating)."""
     sched = make_async_scheduler([("a1", [])])
-    with pytest.raises(ValueError, match="Unknown agent"):
-        await sched.submit_task("nope", Task())
+    assert "nope" not in sched.agents
+    await sched.submit_task("nope", Task())
+    assert "nope" in sched.agents
+    assert len(sched.get_agent("nope").tasks) == 1
 
 
 async def test_backpressure():

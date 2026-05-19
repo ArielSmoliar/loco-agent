@@ -153,10 +153,12 @@ async def test_backpressure_error():
 
 # --- Test 5: Submit to unknown agent ---
 
-async def test_submit_unknown_agent():
+async def test_submit_unknown_agent_auto_registers():
+    """submit_task auto-registers unknown agents instead of raising."""
     sched = make_scheduler(n_agents=1, tasks_per_agent=0)
-    with pytest.raises(ValueError, match="Unknown agent"):
-        await sched.submit_task("nonexistent", Task())
+    assert "nonexistent" not in sched.agents
+    await sched.submit_task("nonexistent", Task())
+    assert "nonexistent" in sched.agents
 
 
 # --- Test 6: Lifecycle hooks fire in order ---

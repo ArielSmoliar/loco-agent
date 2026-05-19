@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Callable
+from uuid import uuid4
 
 from loco.agent import Agent
 from loco.resource import SharedResource
@@ -18,6 +20,20 @@ class BackpressureError(Exception):
 
 class ShutdownError(Exception):
     """Raised when submit_task() or acquire() is called after shutdown."""
+
+
+@dataclass
+class AcquireHandle:
+    """Opaque handle returned by acquire_start().
+
+    Pass to release_handle() to release the resource. Used by adapters
+    that need to split acquire/release across two separate callbacks
+    (e.g., on_llm_start / on_llm_end).
+    """
+
+    handle_id: str = field(default_factory=lambda: uuid4().hex[:12])
+    agent_id: str = ""
+    _released: bool = field(default=False, repr=False)
 
 
 class AsyncLOCOScheduler:
@@ -51,6 +67,7 @@ class AsyncLOCOScheduler:
         self._lock = asyncio.Lock()
         self._shutting_down = False
         self._logical_tick = 0
+        self._active_handles: dict[str, AcquireHandle] = {}
         self.on_task_started = on_task_started
         self.on_task_completed = on_task_completed
 
@@ -69,14 +86,53 @@ class AsyncLOCOScheduler:
     def get_agent(self, agent_id: str) -> Agent:
         return self._scorer.get_agent(agent_id)
 
+    # --- Dynamic agent registration ---
+
+    def register_agent(self, agent: Agent) -> None:
+        """Register a new agent at runtime.
+
+        Raises ValueError if agent_id is already registered.
+        """
+        if agent.agent_id in self.agents:
+            raise ValueError(f"Agent already registered: {agent.agent_id}")
+        self._scorer.agents[agent.agent_id] = agent
+
+    def unregister_agent(self, agent_id: str) -> Agent:
+        """Remove an agent from the scheduler. Returns the removed agent.
+
+        Raises ValueError if agent_id is not registered.
+        Raises RuntimeError if agent is currently holding or waiting for a resource.
+        """
+        if agent_id not in self.agents:
+            raise ValueError(f"Unknown agent: {agent_id}")
+        if self.resource.is_holding(agent_id):
+            raise RuntimeError(
+                f"Cannot unregister {agent_id}: currently holding resource"
+            )
+        if agent_id in self.resource._waiters:
+            raise RuntimeError(
+                f"Cannot unregister {agent_id}: waiting for resource"
+            )
+        return self._scorer.agents.pop(agent_id)
+
+    def _auto_register(self, agent_id: str) -> Agent:
+        """Create and register an agent on first contact."""
+        agent = Agent(agent_id=agent_id)
+        self._scorer.agents[agent_id] = agent
+        return agent
+
     async def submit_task(self, agent_id: str, task: Task) -> None:
         """Enqueue a task to the specified agent.
 
+        Auto-registers the agent if unknown (thesis parallel: slaves
+        announce themselves by participating in contention rounds).
+
         Raises ShutdownError if the scheduler is shutting down.
-        Raises ValueError if agent_id is not registered.
         """
         if self._shutting_down:
             raise ShutdownError("Scheduler is shutting down")
+        if agent_id not in self.agents:
+            self._auto_register(agent_id)
         agent = self._scorer.get_agent(agent_id)
         agent.tasks.append(task)
 
@@ -139,6 +195,76 @@ class AsyncLOCOScheduler:
                 self.on_task_completed(agent_id, serving_task, None)
 
         # After release: age waiting tasks, re-score, grant next waiter
+        await self._on_release()
+
+    # --- Split acquire/release for callback-based frameworks ---
+
+    async def acquire_start(
+        self, agent_id: str, *, timeout: float | None = None
+    ) -> AcquireHandle:
+        """Acquire the resource and return a handle. Call release_handle() to release.
+
+        Use this when acquire and release happen in separate callbacks
+        (e.g., on_llm_start / on_llm_end). For single-block usage,
+        prefer the async with acquire() context manager.
+
+        Args:
+            agent_id: The agent requesting the resource.
+            timeout: Max seconds to wait. None = wait forever.
+
+        Returns:
+            AcquireHandle to pass to release_handle().
+        """
+        if self._shutting_down:
+            raise ShutdownError("Scheduler is shutting down")
+
+        granted = await self.resource.try_acquire(agent_id)
+
+        if not granted:
+            if self.resource.waiter_count >= self.max_waiters:
+                raise BackpressureError(
+                    f"Too many waiters ({self.resource.waiter_count} >= {self.max_waiters})"
+                )
+            try:
+                if timeout is not None:
+                    async with asyncio.timeout(timeout):
+                        await self.resource.wait_for_slot(agent_id)
+                else:
+                    await self.resource.wait_for_slot(agent_id)
+            except TimeoutError:
+                await self.resource.cancel_waiter(agent_id)
+                raise
+
+        # Fire lifecycle hook
+        agent = self.get_agent(agent_id)
+        serving_task = agent.tasks[0] if agent.tasks else None
+        if self.on_task_started and serving_task:
+            self.on_task_started(agent_id, serving_task)
+
+        handle = AcquireHandle(agent_id=agent_id)
+        self._active_handles[handle.handle_id] = handle
+        return handle
+
+    async def release_handle(self, handle: AcquireHandle) -> None:
+        """Release the resource using a handle from acquire_start().
+
+        Safe to call multiple times — subsequent calls are no-ops.
+        """
+        if handle._released:
+            return
+        handle._released = True
+        self._active_handles.pop(handle.handle_id, None)
+
+        # Fire completion hook
+        agent = self.get_agent(handle.agent_id)
+        serving_task = agent.tasks[0] if agent.tasks else None
+        if self.on_task_completed and serving_task:
+            self.on_task_completed(handle.agent_id, serving_task, None)
+
+        # Release the resource slot
+        await self.resource.release(handle.agent_id)
+
+        # Age tasks, re-score, grant next waiter
         await self._on_release()
 
     async def _on_release(self) -> None:

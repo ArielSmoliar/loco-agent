@@ -13,8 +13,12 @@ class BaseAdapter(ABC):
     """Abstract adapter that translates framework-specific agent patterns
     into the LOCO acquire/release lifecycle.
 
+    Adapters handle two directions:
+      Slave → Master: framework context (model, prompt) → Task(weight)
+      Master → Slave: grant/wait decisions → proceed/block
+
     v0.1 ships with VanillaAdapter only. Framework adapters (LangChain,
-    Google ADK, CrewAI) are v0.2.
+    Google ADK, CrewAI, OpenAI, AWS, Azure) are v0.2.
     """
 
     @abstractmethod
@@ -26,10 +30,7 @@ class BaseAdapter(ABC):
 
     @abstractmethod
     async def submit_task(self, agent_id: str, task: Task) -> None:
-        """Enqueue a task to the specified agent.
-
-        Raises ValueError if agent_id is not registered.
-        """
+        """Enqueue a task to the specified agent."""
 
     @abstractmethod
     async def on_scheduled(self, agent_id: str, task: Task) -> Any:
