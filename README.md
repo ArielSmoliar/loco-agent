@@ -425,7 +425,7 @@ The thesis proved convergence for wireless nodes competing for a shared channel.
 
 ## Roadmap
 
-### v0.1 (in progress)
+### v0.1.0 (shipped)
 - [x] Load function validation (simulation notebook)
 - [x] Build plan and API spec
 - [x] Package scaffolding + Task/Agent extraction
@@ -433,18 +433,31 @@ The thesis proved convergence for wireless nodes competing for a shared channel.
 - [x] Async resource + event loop (`SharedResource`, `acquire`/`release`)
 - [x] Async scheduler integration (backpressure, cancellation, lifecycle hooks)
 - [x] `optimize_for` API (`"latency"` / `"balanced"` / `"throughput"`)
-- [x] Full scenario validation — 4 scenarios, 120 tests passing
-- [ ] Vanilla adapter + dynamic agent registration
-- [ ] Observability (structured JSON scheduling log)
-- [ ] Sandbox CLI
+- [x] Full scenario validation — 4 scenarios, 167 tests passing
+- [x] Split acquire/release API for callback-based frameworks
+- [x] Dynamic agent registration (auto-register on first contact)
+- [x] Vanilla adapter (reference implementation)
+- [x] Observability (structured JSON scheduling log + metrics API)
+- [x] Testing utilities (`SyncTestScheduler`, `mock_agent`, `mock_resource`)
+- [x] Sandbox CLI + 4 example scripts
+- [x] SDK integration test plans (7 platforms)
+- [x] CI (pytest + ruff on Python 3.10-3.12)
 
 ### v0.2 (planned)
+
+See [ROADMAP.md](ROADMAP.md) for the full phased plan.
+
+- [ ] Anthropic SDK adapter
+- [ ] OpenAI Agents SDK adapter
 - [ ] LangChain adapter
 - [ ] Google ADK adapter
 - [ ] CrewAI adapter
-- [ ] OpenAI Agents SDK adapter
+- [ ] AWS Bedrock adapter
+- [ ] Azure / AutoGen adapter
+- [ ] Empirical cost tracking
 - [ ] Multi-resource contention
-- [ ] Adaptive alpha tuning (renormalization)
+- [ ] Adaptive alpha tuning
+- [ ] Budget ceilings
 - [ ] A2A protocol integration
 
 ## Contributing

@@ -6,11 +6,16 @@
 git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
 python -m venv .venv && source .venv/bin/activate
-pip install numpy matplotlib jupyter
-jupyter notebook simulation/loco_simulation.ipynb
+pip install -e ".[dev]"
+pytest                         # 167 tests, all should pass
 ```
 
-Run the notebook. See the load function in action. You're ready.
+See the scheduler in action:
+
+```bash
+python sandbox.py --scenario webhook_spike --optimize-for latency
+python examples/burst.py
+```
 
 ## What We Need Most
 
@@ -18,13 +23,22 @@ Run the notebook. See the load function in action. You're ready.
 
 | Adapter | Framework | Status |
 |---------|-----------|--------|
-| Vanilla | Plain async Python | v0.1 (planned) |
+| Vanilla | Plain async Python | Shipped (v0.1) |
 | LangChain | LangChain / LangGraph | Open |
 | Google ADK | Google Agent Development Kit | Open |
 | CrewAI | CrewAI | Open |
 | OpenAI SDK | OpenAI Agents SDK | Open |
+| Anthropic SDK | Claude API | Open |
+| AWS Bedrock | AWS Bedrock Agents / AgentCore | Open |
+| Azure / AutoGen | Azure Foundry / AutoGen v0.4 | Open |
 
-Each adapter implements `BaseAdapter` from `loco/adapters/base.py`. See [SPEC.md](SPEC.md) for the interface definition.
+Each adapter implements `BaseAdapter` from `loco/adapters/base.py`. See `loco/adapters/vanilla.py` as the reference implementation.
+
+Two integration patterns:
+- **Direct wrap:** `async with scheduler.acquire()` around the API call (Anthropic, OpenAI)
+- **Callback-based:** `acquire_start()` / `release_handle()` across two callbacks (ADK, LangChain, CrewAI)
+
+See [docs/sdk_integration_plans.md](docs/sdk_integration_plans.md) for detailed integration guides per platform.
 
 ## How to Contribute
 
@@ -36,18 +50,22 @@ Look for issues labeled `good first issue`. Each one has:
 - Pointer to reference code
 - Which tests to write
 
-### 2. Fork and branch
+### 2. Write your first test
 
-```bash
-git fork
-git checkout -b your-feature-branch
+Use the testing utilities — 10 lines or less:
+
+```python
+from loco.testing import SyncTestScheduler, mock_agent
+
+def test_my_agent_gets_priority():
+    agents = [mock_agent("mine", pending_tasks=10),
+              mock_agent("other", pending_tasks=2)]
+    scheduler = SyncTestScheduler(agents, alpha=0.5, seed=42)
+    result = scheduler.step()
+    assert result.selected_agent.agent_id == "mine"
 ```
 
-### 3. Write tests
-
-Every new feature needs tests. Use the testing utilities in `loco/testing.py` (once available) to validate your work against the scheduler.
-
-### 4. Submit a PR
+### 3. Submit a PR
 
 - Fork, branch, PR against `main`
 - CI must pass (pytest + ruff on Python 3.10-3.12)
@@ -59,23 +77,20 @@ Every new feature needs tests. Use the testing utilities in `loco/testing.py` (o
 - **Linter:** ruff (`ruff check .`)
 - **Type hints:** required on all public APIs
 - **Tests:** required for all new functionality
-- **Docstrings:** required on public methods
 
 ## Architecture
-
-The project has three layers:
 
 ```
 Adapters (framework-specific)
     ↓
-LOCOScheduler (async acquire/release)
+AsyncLOCOScheduler (acquire/release + split acquire_start/release_handle)
     ↓
-Scoring Core (compute_load_scores / select_agent)
+LOCOScheduler (compute_load_scores / select_agent — sync scoring core)
+    ↓
+SharedResource (capacity slots, waiters, grant-time scoring)
 ```
 
-The scoring core is a pure function. The async layer manages resources. Adapters translate framework-specific patterns into the acquire/release lifecycle.
-
-See [PLAN.md](PLAN.md) for the full architecture with diagrams.
+See [PLAN.md](PLAN.md) for the full architecture with diagrams, and [ROADMAP.md](ROADMAP.md) for v0.2 plans.
 
 ## Questions?
 
