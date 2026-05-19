@@ -5,7 +5,7 @@
 LOCO-Agent is a load-aware scheduling layer for multi-agent systems. It sits underneath LangGraph, CrewAI, Google ADK, OpenAI Agents SDK, or any Python agent framework and decides which agent gets the shared resource next -- based on queue depth, wait time, and task cost.
 
 - **No priority rules needed** -- agents with urgent work escalate automatically via the load function
-- **Proven convergence** -- derived from a [2011 wireless networks thesis](https://en.wikipedia.org/wiki/Contention-based_protocol), validated across 4 production scenarios (120 tests)
+- **Proven convergence** -- derived from a [2011 wireless networks thesis](https://en.wikipedia.org/wiki/Contention-based_protocol), validated across 4 production scenarios (167 tests)
 - **One equation** -- `L(i) = alpha * (Qi / max Qj) + (1 - alpha) * (Dmax_i / max Dmax_j)`
 - **Framework-agnostic** -- register any async function as an agent; schedule across frameworks simultaneously
 
@@ -158,12 +158,11 @@ await scheduler.submit_task("fraud-detector", Task(weight=3.0, task_type="gpt4o"
 await scheduler.submit_task("ticket-router", Task(weight=1.0, task_type="haiku"))
 ```
 
-### Cross-agent spend visibility (planned)
+### Cross-agent spend visibility
 
-Every scheduling decision will log the task cost. The metrics API will give the org-level view that no single framework provides:
+Every scheduling decision logs the task cost. The metrics API gives the org-level view that no single framework provides:
 
 ```python
-# v0.2 planned -- not yet implemented
 scheduler.metrics.cost_by_agent()
 # {"fraud-detector": 847.5, "webhook-handler": 42.0, "ticket-router": 115.0,
 #  "rag-pipeline": 315.0, "summarizer": 203.0}
@@ -172,7 +171,7 @@ scheduler.metrics.total_cost()
 # 1522.5
 ```
 
-This will answer the questions that matter at scale: which agents are consuming the most tokens? Is high-value work getting served first? Which team's agents are driving spend?
+This answers the questions that matter at scale: which agents are consuming the most tokens? Is high-value work getting served first? Which team's agents are driving spend?
 
 ### Self-tuning priority
 
@@ -363,7 +362,7 @@ async with scheduler.acquire("analyst"):
 
 ### Per-call framework adapters (v0.2)
 
-Frameworks like ADK and LangChain have callback hooks (`before_model_callback`, `on_llm_start`) that fire *per LLM call*. These need a split acquire/release API that can span two separate callbacks — the adapter layer (coming in v0.2) handles this translation:
+Frameworks like ADK and LangChain have callback hooks (`before_model_callback`, `on_llm_start`) that fire *per LLM call*. The split acquire/release API (`acquire_start()` / `release_handle()`) is shipped in v0.1 for this pattern. Framework-specific adapter classes that wire it up automatically are coming in v0.2:
 
 ```python
 # v0.2 — adapter hooks into framework callbacks automatically
@@ -467,7 +466,7 @@ git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"       # installs pytest, pytest-asyncio, ruff
-pytest                         # 120 tests, all should pass
+pytest                         # 167 tests, all should pass
 ```
 
 To explore the simulation notebook:
