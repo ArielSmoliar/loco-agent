@@ -326,39 +326,58 @@ The load function normalizes (`Qi / max Qj`), so relative cost is what matters -
 
 > **v0.2 planned:** empirical cost tracking -- after each call completes, record actual token usage and auto-adjust future estimates.
 
-### LangChain (via callbacks)
+### Using the core API today (v0.1)
+
+The `acquire()` context manager wraps the work — submit, acquire, do work, auto-release:
 
 ```python
-class LOCOCallback(BaseCallbackHandler):
-    async def on_llm_start(self, serialized, prompts, **kwargs):
-        model = serialized.get("kwargs", {}).get("model_name", "sonnet")
-        weight = estimate_cost(prompts, model)
-        await scheduler.submit_task(self.agent_id, Task(weight=weight))
-        await scheduler.acquire(self.agent_id)
+from loco import Agent, Task, AsyncLOCOScheduler, SharedResource
 
-    async def on_llm_end(self, response, **kwargs):
-        scheduler.release(self.agent_id)
+scheduler = AsyncLOCOScheduler(agents, llm_api, optimize_for="balanced")
 
-# Zero changes to existing chains
-llm = ChatOpenAI(callbacks=[LOCOCallback(scheduler, "rag-agent-1")])
+# Schedule any async work — the agent blocks until L(i) wins a slot
+await scheduler.submit_task("support-bot", Task(weight=2.0))
+async with scheduler.acquire("support-bot"):
+    response = await call_llm(prompt)  # resource held during this call
+# auto-released here — scheduler re-evaluates all waiters
 ```
 
-### Google ADK (via model callbacks)
+This works with any framework. Wrap the LLM call (or agent run) in `acquire()`:
 
 ```python
-async def loco_before_model(ctx, llm_request):
-    weight = MODEL_COST.get(ctx.model, 1.0)
-    await scheduler.submit_task(ctx.agent_name, Task(weight=weight))
-    await scheduler.acquire(ctx.agent_name)
-    return None  # proceed with the call
+# Google ADK — wrap the runner
+await scheduler.submit_task("support-bot", Task(weight=2.0))
+async with scheduler.acquire("support-bot"):
+    response = await adk_runner.run(user_message)
 
-async def loco_after_model(ctx, llm_response):
-    scheduler.release(ctx.agent_name)
-    return llm_response
+# LangChain — wrap the chain invoke
+await scheduler.submit_task("rag-pipeline", Task(weight=3.0))
+async with scheduler.acquire("rag-pipeline"):
+    result = await chain.ainvoke({"input": query})
 
-agent = Agent(name="support", model="gemini-2.0-flash",
-              before_model_callback=loco_before_model,
-              after_model_callback=loco_after_model)
+# Anthropic SDK — wrap the API call
+await scheduler.submit_task("analyst", Task(weight=5.0))
+async with scheduler.acquire("analyst"):
+    message = await client.messages.create(model="claude-sonnet-4-20250514", ...)
+```
+
+### Per-call framework adapters (v0.2)
+
+Frameworks like ADK and LangChain have callback hooks (`before_model_callback`, `on_llm_start`) that fire *per LLM call*. These need a split acquire/release API that can span two separate callbacks — the adapter layer (coming in v0.2) handles this translation:
+
+```python
+# v0.2 — adapter hooks into framework callbacks automatically
+# Developer's agent code is unchanged; adapter intercepts each LLM call
+
+# Google ADK (via before_model_callback / after_model_callback)
+adapter = ADKAdapter(scheduler)
+agent = adk.Agent(name="support", model="gemini-2.0-flash",
+                  before_model_callback=adapter.before_model,
+                  after_model_callback=adapter.after_model)
+
+# LangChain (via BaseCallbackHandler)
+adapter = LangChainAdapter(scheduler)
+llm = ChatOpenAI(callbacks=[adapter.callback("rag-agent-1")])
 ```
 
 ### Cross-framework scheduling
