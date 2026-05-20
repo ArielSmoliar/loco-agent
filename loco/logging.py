@@ -56,6 +56,7 @@ def emit_grant(
     resource_name: str,
     utilization: float,
     cumulative_cost: float,
+    budget_remaining: float | None = None,
 ) -> dict[str, Any]:
     """Emit when an agent is granted the resource."""
     event = {
@@ -71,6 +72,8 @@ def emit_grant(
         "utilization": round(utilization, 4),
         "agent_cumulative_cost": round(cumulative_cost, 4),
     }
+    if budget_remaining is not None:
+        event["budget_remaining"] = round(budget_remaining, 4)
     logger.info(_serialize_event(event))
     return event
 
@@ -106,6 +109,31 @@ def emit_timeout(
         "tick": tick,
         "event": "timeout",
         "agent": agent_id,
+        "resource": resource_name,
+    }
+    logger.warning(_serialize_event(event))
+    return event
+
+
+def emit_budget_exceeded(
+    tick: int,
+    agent_id: str,
+    task: Task,
+    current: float,
+    limit: float | None,
+    action: str,
+    resource_name: str,
+) -> dict[str, Any]:
+    """Emit when a task is rejected or flagged due to budget limits."""
+    event = {
+        "tick": tick,
+        "event": "budget_exceeded",
+        "agent": agent_id,
+        "task_id": task.task_id,
+        "task_cost": task.weight,
+        "current_spend": round(current, 4),
+        "budget_limit": round(limit, 4) if limit is not None else None,
+        "action": action,
         "resource": resource_name,
     }
     logger.warning(_serialize_event(event))

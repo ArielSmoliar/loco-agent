@@ -38,6 +38,7 @@ else:
 from loco import logging as loco_log
 from loco.adaptive import AdaptiveAlphaTuner
 from loco.agent import Agent
+from loco.budget import BudgetExceededError, BudgetManager
 from loco.metrics import SchedulerMetrics
 from loco.resource import SharedResource
 from loco.scheduler import LOCOScheduler
@@ -64,6 +65,7 @@ class AcquireHandle:
     handle_id: str = field(default_factory=lambda: uuid4().hex[:12])
     agent_id: str = ""
     _released: bool = field(default=False, repr=False)
+    _serving_task: Task | None = field(default=None, repr=False)
 
 
 class AsyncLOCOScheduler:
@@ -89,9 +91,11 @@ class AsyncLOCOScheduler:
         on_task_started: Callable[[str, Task], None] | None = None,
         on_task_completed: Callable[[str, Task, Any], None] | None = None,
         auto_tune: bool = False,
+        budget: BudgetManager | None = None,
     ) -> None:
         self.resource = resource
         self.max_waiters = max_waiters
+        self.budget = budget
         self._scorer = LOCOScheduler(
             agents, alpha=alpha, optimize_for=optimize_for, seed=seed
         )
@@ -224,9 +228,33 @@ class AsyncLOCOScheduler:
         # Fire lifecycle hook + logging
         agent = self.get_agent(agent_id)
         serving_task = agent.tasks[0] if agent.tasks else None
+
+        # Budget check BEFORE metrics/logging/hooks.
+        # Rejected tasks must not inflate cost metrics or emit grant events.
+        if self.budget and serving_task:
+            try:
+                self.budget.check(agent_id, serving_task.weight)
+            except BudgetExceededError:
+                loco_log.emit_budget_exceeded(
+                    tick=self._logical_tick,
+                    agent_id=agent_id,
+                    task=serving_task,
+                    current=self.budget.spent(agent_id),
+                    limit=self.budget.get_limit(agent_id),
+                    action=self.budget.on_exceeded,
+                    resource_name=self.resource.name,
+                )
+                # Release resource so next waiter can proceed
+                await self.resource.release(agent_id)
+                await self._on_release()
+                raise
+
         if serving_task:
             self.metrics.record_task_cost(agent_id, serving_task.weight)
             scores = self._scorer.compute_load_scores()
+            budget_remaining = (
+                self.budget.remaining(agent_id) if self.budget else None
+            )
             loco_log.emit_grant(
                 tick=self._logical_tick,
                 agent_id=agent_id,
@@ -237,6 +265,7 @@ class AsyncLOCOScheduler:
                 resource_name=self.resource.name,
                 utilization=self.resource.utilization,
                 cumulative_cost=self.metrics.agent_cost(agent_id),
+                budget_remaining=budget_remaining,
             )
         if self.on_task_started and serving_task:
             self.on_task_started(agent_id, serving_task)
@@ -246,6 +275,9 @@ class AsyncLOCOScheduler:
             async with self.resource.held_by(agent_id):
                 yield
         finally:
+            # Record spend to budget on successful completion
+            if self.budget and serving_task:
+                self.budget.record_spend(agent_id, serving_task.weight)
             # Fire completion hook + logging
             if serving_task:
                 loco_log.emit_release(
@@ -302,9 +334,31 @@ class AsyncLOCOScheduler:
         # Fire lifecycle hook + logging
         agent = self.get_agent(agent_id)
         serving_task = agent.tasks[0] if agent.tasks else None
+
+        # Budget check BEFORE metrics/logging/hooks.
+        if self.budget and serving_task:
+            try:
+                self.budget.check(agent_id, serving_task.weight)
+            except BudgetExceededError:
+                loco_log.emit_budget_exceeded(
+                    tick=self._logical_tick,
+                    agent_id=agent_id,
+                    task=serving_task,
+                    current=self.budget.spent(agent_id),
+                    limit=self.budget.get_limit(agent_id),
+                    action=self.budget.on_exceeded,
+                    resource_name=self.resource.name,
+                )
+                await self.resource.release(agent_id)
+                await self._on_release()
+                raise
+
         if serving_task:
             self.metrics.record_task_cost(agent_id, serving_task.weight)
             scores = self._scorer.compute_load_scores()
+            budget_remaining = (
+                self.budget.remaining(agent_id) if self.budget else None
+            )
             loco_log.emit_grant(
                 tick=self._logical_tick,
                 agent_id=agent_id,
@@ -315,11 +369,12 @@ class AsyncLOCOScheduler:
                 resource_name=self.resource.name,
                 utilization=self.resource.utilization,
                 cumulative_cost=self.metrics.agent_cost(agent_id),
+                budget_remaining=budget_remaining,
             )
         if self.on_task_started and serving_task:
             self.on_task_started(agent_id, serving_task)
 
-        handle = AcquireHandle(agent_id=agent_id)
+        handle = AcquireHandle(agent_id=agent_id, _serving_task=serving_task)
         self._active_handles[handle.handle_id] = handle
         return handle
 
@@ -333,9 +388,11 @@ class AsyncLOCOScheduler:
         handle._released = True
         self._active_handles.pop(handle.handle_id, None)
 
-        # Fire completion hook + logging
-        agent = self.get_agent(handle.agent_id)
-        serving_task = agent.tasks[0] if agent.tasks else None
+        # Use task captured at acquire time (may have been served by now)
+        serving_task = handle._serving_task
+        # Record spend to budget on completion
+        if self.budget and serving_task:
+            self.budget.record_spend(handle.agent_id, serving_task.weight)
         if serving_task:
             loco_log.emit_release(
                 tick=self._logical_tick,
