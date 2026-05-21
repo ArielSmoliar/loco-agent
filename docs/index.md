@@ -8,6 +8,7 @@ LOCO-Agent sits underneath your agent framework and decides which agent gets the
 
 ```bash
 pip install loco-agent
+LOCO_LOG=pretty python try_it.py
 ```
 
 ## 30-Second Example
