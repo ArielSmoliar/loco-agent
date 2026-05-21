@@ -1,8 +1,28 @@
-# LOCO-Agent
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="LOCO-Agent" width="100%"/>
+</p>
+
+<p align="center">
+  <a href="https://arielsmoliar.github.io/loco-agent/">Docs</a> &middot;
+  <a href="#quick-start">Quick Start</a> &middot;
+  <a href="https://pypi.org/project/loco-agent/">PyPI</a> &middot;
+  <a href="#framework-adapters">Adapters</a> &middot;
+  <a href="https://github.com/ArielSmoliar/loco-agent/blob/main/CHANGELOG.md">Changelog</a>
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/loco-agent/"><img src="https://img.shields.io/pypi/v/loco-agent?color=e65100&label=PyPI" alt="PyPI"></a>
+  <a href="https://pypi.org/project/loco-agent/"><img src="https://img.shields.io/pypi/pyversions/loco-agent?color=1565c0" alt="Python"></a>
+  <a href="https://github.com/ArielSmoliar/loco-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-2e7d32" alt="License"></a>
+  <img src="https://img.shields.io/badge/tests-289%20passed-2e7d32" alt="Tests">
+  <img src="https://img.shields.io/badge/adapters-7%20frameworks-1565c0" alt="Adapters">
+</p>
+
+---
 
 Load-aware scheduling layer for multi-agent AI systems. Sits underneath any Python agent framework and decides which agent gets the shared resource next -- based on queue depth, wait time, and task cost.
 
-Works with LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS Bedrock, and Azure/AutoGen. 289 tests. AGPL-3.0.
+Works with LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS Bedrock, and Azure/AutoGen.
 
 ## Features
 
@@ -22,9 +42,14 @@ Works with LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS 
 ## Install
 
 ```bash
+pip install loco-agent
+```
+
+Or from source:
+
+```bash
 git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
-python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
@@ -32,24 +57,50 @@ Python 3.10+. Zero required dependencies (adapters use optional deps).
 
 ## Quick Start
 
+Wrap any async LLM call with `loco.wrap()` -- one line adds scheduling, concurrency control, and cost tracking:
+
+```python
+import asyncio
+import loco
+
+async def main():
+    loco.configure(capacity=3)  # 3 concurrent LLM slots
+
+    # Any async callable -- Anthropic, OpenAI, Gemini, etc.
+    async def call_llm(prompt):
+        await asyncio.sleep(0.1)  # your LLM call here
+        return f"response to: {prompt}"
+
+    # loco.wrap() handles queuing, priority, and cost tracking
+    results = await asyncio.gather(
+        loco.wrap(call_llm, agent_id="triage",     weight=1.0, prompt="classify this"),
+        loco.wrap(call_llm, agent_id="escalation",  weight=3.0, prompt="deep analysis"),
+        loco.wrap(call_llm, agent_id="support",      weight=1.0, prompt="draft reply"),
+        loco.wrap(call_llm, agent_id="escalation",  weight=3.0, prompt="investigate"),
+    )
+
+    scheduler = loco.get_scheduler()
+    print(scheduler.metrics.cost_by_agent())
+
+asyncio.run(main())
+```
+
+<details>
+<summary>Full API example (without convenience wrapper)</summary>
+
 ```python
 import asyncio
 from loco import Agent, Task, AsyncLOCOScheduler, SharedResource
 
 async def main():
-    # 1. Define a shared resource with bounded concurrency
     resource = SharedResource("llm_api", capacity=1)
-
-    # 2. Register agents
     agents = [Agent(agent_id="urgent"), Agent(agent_id="batch")]
     scheduler = AsyncLOCOScheduler(agents, resource, optimize_for="balanced")
 
-    # 3. Submit tasks -- weight reflects cost (1=cheap, 5=expensive)
     for _ in range(5):
         await scheduler.submit_task("batch", Task(weight=1.0))
     await scheduler.submit_task("urgent", Task(weight=3.0))
 
-    # 4. Agents compete for the resource via acquire/release
     async def worker(agent_id, n):
         for _ in range(n):
             async with scheduler.acquire(agent_id):
@@ -57,13 +108,12 @@ async def main():
                 await asyncio.sleep(0)
 
     await asyncio.gather(worker("urgent", 1), worker("batch", 5))
-
-    # 5. Inspect cost
     print(scheduler.metrics.cost_by_agent())
-    print(f"Total: {scheduler.metrics.total_cost()}")
 
 asyncio.run(main())
 ```
+
+</details>
 
 ## Core Concepts
 
@@ -427,10 +477,12 @@ graph TD
 - Multi-resource contention (deadlock-safe ResourcePool)
 - BudgetManager with per-agent spend limits (reject / alert / downgrade)
 - A2A protocol integration
-- 263 tests
+- 289 tests
+- Convenience API (`loco.configure`, `loco.wrap`, `loco.scheduled`)
+- Pretty terminal output (`LOCO_LOG=pretty`)
+- `loco doctor` CLI
 
 ### Next
-- [x] Wire BudgetManager into AsyncLOCOScheduler (automatic enforcement on acquire)
 - [ ] Prometheus / OTEL exporter
 - [ ] Team/tenant model for organizational cost governance
 - [ ] Model-tier routing (load/budget-aware model selection)
@@ -444,7 +496,7 @@ git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest   # 263 tests
+pytest   # 289 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
