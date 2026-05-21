@@ -2,7 +2,7 @@
 
 Load-aware scheduling layer for multi-agent AI systems. Sits underneath any Python agent framework and decides which agent gets the shared resource next -- based on queue depth, wait time, and task cost.
 
-Works with LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS Bedrock, and Azure/AutoGen.
+Works with LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS Bedrock, and Azure/AutoGen. 289 tests. AGPL-3.0.
 
 ## Features
 
@@ -427,10 +427,10 @@ graph TD
 - Multi-resource contention (deadlock-safe ResourcePool)
 - BudgetManager with per-agent spend limits (reject / alert / downgrade)
 - A2A protocol integration
-- 254 tests
+- 263 tests
 
 ### Next
-- [ ] Wire BudgetManager into AsyncLOCOScheduler (automatic enforcement on acquire)
+- [x] Wire BudgetManager into AsyncLOCOScheduler (automatic enforcement on acquire)
 - [ ] Prometheus / OTEL exporter
 - [ ] Team/tenant model for organizational cost governance
 - [ ] Model-tier routing (load/budget-aware model selection)
@@ -444,7 +444,7 @@ git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest   # 254 tests
+pytest   # 263 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.

@@ -1,0 +1,60 @@
+site_name: LOCO-Agent
+site_url: https://arielsmoliar.github.io/loco-agent
+site_description: Load-aware scheduling and cost governance for multi-agent AI systems
+repo_url: https://github.com/ArielSmoliar/loco-agent
+repo_name: ArielSmoliar/loco-agent
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: deep orange
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - tables
+
+nav:
+  - Home: index.md
+  - Quick Start: quickstart.md
+  - Concepts:
+    - Load Function: concepts/load-function.md
+    - Contention Resolution: concepts/contention.md
+    - Budget Management: concepts/budgets.md
+  - API Reference: api.md
+  - Adapters:
+    - Overview: adapters/index.md
+    - Anthropic: adapters/anthropic.md
+    - OpenAI: adapters/openai.md
+    - Google ADK: adapters/google-adk.md
+    - LangChain: adapters/langchain.md
+    - CrewAI: adapters/crewai.md
+    - AWS Bedrock: adapters/aws-bedrock.md
+    - AutoGen: adapters/autogen.md
+  - Demos: demos.md
