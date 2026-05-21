@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "loco-agent"
-version = "0.2.0dev0"
+version = "0.2.0"
 description = "Load-aware scheduling layer for multi-agent systems"
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -23,6 +23,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Framework :: AsyncIO",
 ]
+
+[project.scripts]
+loco = "loco.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["loco*"]

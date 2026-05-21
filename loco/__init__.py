@@ -4,6 +4,7 @@ from loco.adaptive import AdaptiveAlphaTuner
 from loco.agent import Agent
 from loco.async_scheduler import AcquireHandle, AsyncLOCOScheduler, BackpressureError, ShutdownError
 from loco.budget import BudgetExceededError, BudgetManager
+from loco.convenience import configure, get_scheduler, reset, scheduled, set_budget, wrap
 from loco.metrics import SchedulerMetrics, jains_fairness
 from loco.resource import SharedResource
 from loco.scheduler import OPTIMIZE_FOR_ALPHA, LOCOScheduler, StepResult
@@ -25,5 +26,11 @@ __all__ = [
     "SchedulerMetrics",
     "BudgetManager",
     "BudgetExceededError",
+    "configure",
+    "wrap",
+    "scheduled",
+    "set_budget",
+    "get_scheduler",
+    "reset",
 ]
-__version__ = "0.2.0dev0"
+__version__ = "0.2.0"
