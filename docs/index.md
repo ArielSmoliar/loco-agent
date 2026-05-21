@@ -20,11 +20,11 @@ async def main():
     loco.configure(capacity=3, budget_mode="reject")
     loco.set_budget("analyst", max_cost=50.0)
 
-    async def call_llm(**kwargs):
-        return f"response for {kwargs.get('agent_id')}"
+    async def call_llm(prompt="hello"):
+        return f"response: {prompt}"
 
     result = await loco.wrap(
-        call_llm, agent_id="analyst", weight=2.0
+        call_llm, agent_id="analyst", weight=2.0, prompt="summarize Q2 report"
     )
     print(result)
     print(loco.get_scheduler().metrics.cost_by_agent())
