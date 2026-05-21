@@ -8,46 +8,53 @@ Usage:
 from __future__ import annotations
 
 import importlib.metadata
-import subprocess
 import sys
-
 
 # Framework detection: package name -> (display name, adapter import, quick start)
 FRAMEWORKS = {
     "anthropic": (
         "Anthropic SDK",
         "loco.adapters.anthropic.AnthropicAdapter",
-        'adapter = AnthropicAdapter(scheduler, client=anthropic.AsyncAnthropic())\nresponse = await adapter.create_message("agent", model="claude-sonnet-4-20250514", ...)',
+        "adapter = AnthropicAdapter(scheduler, client=...)\n"
+        'response = await adapter.create_message("agent", ...)',
     ),
     "openai": (
         "OpenAI SDK",
         "loco.adapters.openai.OpenAIAdapter",
-        'adapter = OpenAIAdapter(scheduler, client=openai.AsyncOpenAI())\nresponse = await adapter.create_chat("agent", model="gpt-4o", messages=[...])',
+        "adapter = OpenAIAdapter(scheduler, client=...)\n"
+        'response = await adapter.create_chat("agent", model="gpt-4o", ...)',
     ),
     "langchain-core": (
         "LangChain",
         "loco.adapters.langchain.LOCOCallbackHandler",
-        'callback = LOCOCallbackHandler(scheduler, agent_id="agent")\nllm = ChatOpenAI(callbacks=[callback])',
+        'callback = LOCOCallbackHandler(scheduler, agent_id="agent")\n'
+        "llm = ChatOpenAI(callbacks=[callback])",
     ),
     "google-adk": (
         "Google ADK",
         "loco.adapters.google_adk.ADKAdapter",
-        'adapter = ADKAdapter(scheduler)\nagent = adk.Agent(before_model_callback=adapter.before_model, after_model_callback=adapter.after_model)',
+        "adapter = ADKAdapter(scheduler)\n"
+        "agent = adk.Agent(\n"
+        "    before_model_callback=adapter.before_model,\n"
+        "    after_model_callback=adapter.after_model)",
     ),
     "crewai": (
         "CrewAI",
         "loco.adapters.crewai.CrewAIAdapter",
-        'adapter = CrewAIAdapter(scheduler)\nresult = await adapter.run_crew(crew, task_descriptions=[...])',
+        "adapter = CrewAIAdapter(scheduler)\n"
+        "result = await adapter.run_crew(crew, ...)",
     ),
     "boto3": (
         "AWS Bedrock",
         "loco.adapters.aws_bedrock.BedrockAdapter",
-        'adapter = BedrockAdapter(scheduler, client=bedrock_client)\nresponse = await adapter.invoke("agent", model_id="anthropic.claude-sonnet-4-20250514-v1:0", body={...})',
+        "adapter = BedrockAdapter(scheduler, client=...)\n"
+        'response = await adapter.invoke("agent", model_id=...)',
     ),
     "autogen-core": (
         "AutoGen",
         "loco.adapters.autogen.AutoGenAdapter",
-        'adapter = AutoGenAdapter(scheduler)\nresult = await adapter.send_message("sender", "recipient", "content")',
+        "adapter = AutoGenAdapter(scheduler)\n"
+        'result = await adapter.send_message("sender", "recipient", ...)',
     ),
 }
 
@@ -135,7 +142,7 @@ def _doctor() -> None:
         from loco import __version__
         loco_version = __version__
     print(f"LOCO-Agent v{loco_version}")
-    print(f"Docs: https://github.com/ArielSmoliar/loco-agent")
+    print("Docs: https://github.com/ArielSmoliar/loco-agent")
 
 
 def _version() -> None:

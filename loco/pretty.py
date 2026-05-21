@@ -19,7 +19,6 @@ import json
 import logging
 import os
 
-
 # ANSI color codes
 _RESET = "\033[0m"
 _BOLD = "\033[1m"
@@ -55,7 +54,10 @@ def _format_event(record: logging.LogRecord) -> str:
         score = event.get("score", 0)
         dmax = event.get("dmax", 0)
         budget_remaining = event.get("budget_remaining")
-        budget_str = f"  budget={budget_remaining:.1f} remaining" if budget_remaining is not None else ""
+        budget_str = (
+            f"  budget={budget_remaining:.1f} remaining"
+            if budget_remaining is not None else ""
+        )
         return (
             f"{_GREEN}[GRANT]{_RESET}    {_BOLD}{agent:<14}{_RESET} "
             f"score={score:.2f}  waited={int(dmax)}{budget_str}  "

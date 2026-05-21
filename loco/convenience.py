@@ -29,7 +29,6 @@ from __future__ import annotations
 import functools
 from typing import Any, Callable, TypeVar
 
-from loco.agent import Agent
 from loco.async_scheduler import AsyncLOCOScheduler
 from loco.budget import BudgetManager
 from loco.resource import SharedResource
