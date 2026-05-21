@@ -6,6 +6,7 @@ from loco.async_scheduler import AcquireHandle, AsyncLOCOScheduler, Backpressure
 from loco.budget import BudgetExceededError, BudgetManager
 from loco.convenience import configure, get_scheduler, reset, scheduled, set_budget, wrap
 from loco.metrics import SchedulerMetrics, jains_fairness
+from loco.pretty import auto_install as _auto_install_pretty
 from loco.resource import SharedResource
 from loco.scheduler import OPTIMIZE_FOR_ALPHA, LOCOScheduler, StepResult
 from loco.task import Task
@@ -34,3 +35,6 @@ __all__ = [
     "reset",
 ]
 __version__ = "0.2.2"
+
+# Auto-install pretty formatter if LOCO_LOG=pretty
+_auto_install_pretty()
