@@ -112,7 +112,7 @@ async def test_wrap_budget_rejection():
 
 @pytest.mark.asyncio
 async def test_wrap_concurrent():
-    scheduler = loco.configure(capacity=2)
+    loco.configure(capacity=2)
     order = []
 
     async def mock_llm(**kwargs):
