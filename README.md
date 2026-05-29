@@ -14,7 +14,7 @@
   <a href="https://pypi.org/project/loco-agent/"><img src="https://img.shields.io/pypi/v/loco-agent?color=e65100&label=PyPI" alt="PyPI"></a>
   <a href="https://pypi.org/project/loco-agent/"><img src="https://img.shields.io/pypi/pyversions/loco-agent?color=1565c0" alt="Python"></a>
   <a href="https://github.com/ArielSmoliar/loco-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-2e7d32" alt="License"></a>
-  <img src="https://img.shields.io/badge/tests-289%20passed-2e7d32" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-389%20passed-2e7d32" alt="Tests">
   <img src="https://img.shields.io/badge/adapters-7%20frameworks-1565c0" alt="Adapters">
 </p>
 
@@ -32,6 +32,10 @@ Works with LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS 
 - **Backpressure** -- `max_waiters` cap prevents unbounded queue growth
 - **Cost tracking** -- per-agent token spend visibility across all frameworks
 - **Budget management** -- per-agent spend limits with reject / alert / downgrade enforcement modes
+- **Policy engine** -- composable PolicyEnforcer with budget, access control, and rate limiting policies
+- **Security labels** -- classify task data as public/internal/confidential, enforce at dispatch
+- **Execution plans** -- static DAG with topological sort, cycle detection, and dependency tracking
+- **SLO error budgets** -- state machine (healthy/warning/critical/exhausted) with rolling window
 - **Empirical cost tuning** -- EMA-based weight adjustment from actual token usage
 - **Adaptive alpha** -- auto-tunes the latency/throughput tradeoff based on observed wait-time variance
 - **7 framework adapters** -- Anthropic, OpenAI, Google ADK, LangChain, CrewAI, AWS Bedrock, Azure/AutoGen
@@ -448,7 +452,7 @@ graph TD
     SCH["AsyncLOCOScheduler\nL(i) scoring + grant"] --> RES["SharedResource\ncapacity=N"]
 
     SCH --- MET["SchedulerMetrics\ncost tracking"]
-    SCH --- BUD["BudgetManager\nspend limits"]
+    SCH --- BUD["PolicyEnforcer\nbudget + access + rate"]
     SCH --- ALP["AdaptiveAlphaTuner\nauto-tune"]
 
     style SCH fill:#e65100,color:#fff,stroke:#e65100
@@ -467,25 +471,32 @@ graph TD
 
 ## Roadmap
 
-### Shipped
-- Async scheduler with acquire/release, backpressure, cancellation
-- `optimize_for` API, split acquire/release, dynamic agent registration
-- 4 scenarios validated, structured JSON logging, metrics API
-- 7 framework adapters (Anthropic, OpenAI, ADK, LangChain, CrewAI, Bedrock, AutoGen)
-- Empirical cost tracking (EMA-based weight adjustment)
-- Adaptive alpha tuning (`auto_tune=True`)
-- Multi-resource contention (deadlock-safe ResourcePool)
-- BudgetManager with per-agent spend limits (reject / alert / downgrade)
-- A2A protocol integration
-- 289 tests
-- Convenience API (`loco.configure`, `loco.wrap`, `loco.scheduled`)
-- Pretty terminal output (`LOCO_LOG=pretty`)
-- `loco doctor` CLI
+### v0.1 -- Core Scheduler (shipped May 2026)
+- Async acquire/release with grant-time scoring, backpressure, cancellation
+- 4 validated scenarios, structured JSON logging, metrics API
 
-### Next
+### v0.2 -- Ecosystem + Cost Visibility (shipped May 2026)
+- 7 framework adapters (Anthropic, OpenAI, ADK, LangChain, CrewAI, Bedrock, AutoGen)
+- BudgetManager, multi-resource contention, adaptive alpha, A2A protocol
+- Convenience API, pretty output, `loco doctor` CLI
+
+### v0.3 -- Cost Governance + Policy Engine (shipped May 2026)
+- PolicyEnforcer with composable policies (budget + access + rate)
+- BudgetPolicy, AccessPolicy, RatePolicy
+- SecurityLabel enum on tasks (public/internal/confidential)
+- Static Plan/Step DAG with topological sort and cycle detection
+- SLO error budgets (healthy/warning/critical/exhausted state machine)
+- 389 tests
+
+### v0.4 -- Enterprise Cost Dashboard (next)
 - [ ] Prometheus / OTEL exporter
-- [ ] Team/tenant model for organizational cost governance
-- [ ] Model-tier routing (load/budget-aware model selection)
+- [ ] Cost attribution (per-team, per-workflow, per-model)
+- [ ] Token-to-outcome tracking
+- [ ] Trust scoring (agent behavioral score)
+- [ ] Multi-tenant isolation
+- [ ] Grafana template
+
+### v0.5+ -- Dynamic Plans, Cross-Provider Routing, LOCO Cloud
 
 See [ROADMAP.md](ROADMAP.md) for the full plan.
 
@@ -496,7 +507,7 @@ git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest   # 289 tests
+pytest   # 389 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
