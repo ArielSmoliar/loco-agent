@@ -1,16 +1,14 @@
 """Integration tests: PolicyEnforcer wired into AsyncLOCOScheduler."""
 
-import asyncio
 
 import pytest
 
 from loco.agent import Agent
-from loco.async_scheduler import AsyncLOCOScheduler, BackpressureError
+from loco.async_scheduler import AsyncLOCOScheduler
 from loco.budget import BudgetExceededError, BudgetManager, BudgetPolicy
 from loco.policy import Policy, PolicyEnforcer, PolicyViolationError
 from loco.resource import SharedResource
 from loco.task import Task
-
 
 # --- Test helpers ---
 

@@ -1,7 +1,5 @@
 """Tests for session-level cost tracking."""
 
-import pytest
-
 from loco.agent import Agent
 from loco.async_scheduler import AsyncLOCOScheduler
 from loco.resource import SharedResource

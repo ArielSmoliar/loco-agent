@@ -1,7 +1,5 @@
 """Tests for SLO error budgets."""
 
-import pytest
-
 from loco.slo import SLOBudget, SLOState
 from loco.task import Task
 
