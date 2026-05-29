@@ -65,6 +65,9 @@ LOCO_LOG=pretty python your_app.py
 | No visibility into agent spend | Cost tracking per agent across all frameworks |
 | No budget limits | Per-agent budget enforcement (reject / alert / downgrade) |
 | Manual priority tuning | Self-tuning alpha parameter adapts to workload shifts |
+| No access control at dispatch | Composable policies: budget + access labels + rate limits |
+| No execution ordering | Static DAG plans with dependency tracking |
+| No SLO visibility | Error budget state machine (healthy / warning / critical) |
 
 ## Works With
 
@@ -76,5 +79,7 @@ Run `loco doctor` to detect your installed frameworks and get integration code.
 
 - [Quick Start](quickstart.md) -- install, configure, and see scheduling output in 5 minutes
 - [Concepts](concepts/load-function.md) -- how the load function, ticks, and alpha work
+- [Policy Engine](concepts/policies.md) -- composable policies for cost governance, access control, and rate limiting
+- [Execution Plans](concepts/plans.md) -- DAG-based task orchestration
 - [API Reference](api.md) -- every class, method, and parameter
 - [Adapters](adapters/index.md) -- framework-specific integration guides

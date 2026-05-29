@@ -33,7 +33,7 @@ def emit_enqueue(
     resource_name: str,
 ) -> dict[str, Any]:
     """Emit when a task is submitted to an agent's queue."""
-    event = {
+    event: dict[str, Any] = {
         "tick": tick,
         "event": "enqueue",
         "agent": agent_id,
@@ -42,6 +42,8 @@ def emit_enqueue(
         "queue_depth": queue_depth,
         "resource": resource_name,
     }
+    if task.labels:
+        event["labels"] = {k: str(v) for k, v in task.labels.items()}
     logger.info(_serialize_event(event))
     return event
 
@@ -155,4 +157,43 @@ def emit_error(
         "resource": resource_name,
     }
     logger.error(_serialize_event(event))
+    return event
+
+
+def emit_policy_violation(
+    tick: int,
+    agent_id: str,
+    policy_name: str,
+    detail: str,
+    resource_name: str,
+) -> dict[str, Any]:
+    """Emit when a policy check rejects a task."""
+    event = {
+        "tick": tick,
+        "event": "policy_violation",
+        "agent": agent_id,
+        "policy": policy_name,
+        "detail": detail,
+        "resource": resource_name,
+    }
+    logger.warning(_serialize_event(event))
+    return event
+
+
+def emit_policy_check(
+    tick: int,
+    agent_id: str,
+    policies_passed: list[str],
+    resource_name: str,
+) -> dict[str, Any]:
+    """Emit after all policies pass for a grant decision."""
+    event = {
+        "tick": tick,
+        "event": "policy_check",
+        "agent": agent_id,
+        "policies": policies_passed,
+        "passed": True,
+        "resource": resource_name,
+    }
+    logger.info(_serialize_event(event))
     return event

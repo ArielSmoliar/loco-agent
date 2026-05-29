@@ -110,6 +110,32 @@ Three enforcement modes:
 | `"alert"` | Allows the task, logs a warning, records the alert |
 | `"downgrade"` | Allows the task, flags for model downgrade |
 
+## Add Policy Enforcement
+
+Compose multiple policies -- budget limits, access control, and rate limiting in one enforcer:
+
+```python
+from loco import (
+    AsyncLOCOScheduler, Agent, SharedResource,
+    PolicyEnforcer, BudgetPolicy, AccessPolicy, RatePolicy,
+    SecurityLabel, Task,
+)
+
+enforcer = PolicyEnforcer([
+    BudgetPolicy(default_limit=100.0, on_exceeded="reject"),
+    AccessPolicy(rules={"analyst": {"labels": ["public", "internal"]}}),
+    RatePolicy(limits={"batch": 10.0}, period=60.0),
+])
+
+scheduler = AsyncLOCOScheduler(
+    agents=[Agent(agent_id="analyst"), Agent(agent_id="batch")],
+    resource=SharedResource("llm_api", capacity=3),
+    enforcer=enforcer,
+)
+```
+
+See [Policy Engine](concepts/policies.md) for details.
+
 ## See Scheduling in Action
 
 Set `LOCO_LOG=pretty` for colored terminal output:
@@ -163,4 +189,7 @@ python examples/mdash_security.py   # Multi-model cost routing
 
 - [Load Function](concepts/load-function.md) -- how the scheduling equation works
 - [Budget Management](concepts/budgets.md) -- cost governance deep dive
+- [Policy Engine](concepts/policies.md) -- composable policies for cost governance
+- [Execution Plans](concepts/plans.md) -- DAG-based task orchestration
+- [SLO Error Budgets](concepts/slo.md) -- monitor scheduling quality
 - [Adapters](adapters/index.md) -- integrate with your framework

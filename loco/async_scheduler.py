@@ -40,6 +40,7 @@ from loco.adaptive import AdaptiveAlphaTuner
 from loco.agent import Agent
 from loco.budget import BudgetExceededError, BudgetManager
 from loco.metrics import SchedulerMetrics
+from loco.policy import PolicyEnforcer, PolicyViolationError
 from loco.resource import SharedResource
 from loco.scheduler import LOCOScheduler
 from loco.task import Task
@@ -92,10 +93,24 @@ class AsyncLOCOScheduler:
         on_task_completed: Callable[[str, Task, Any], None] | None = None,
         auto_tune: bool = False,
         budget: BudgetManager | None = None,
+        enforcer: PolicyEnforcer | None = None,
     ) -> None:
         self.resource = resource
         self.max_waiters = max_waiters
         self.budget = budget
+
+        # Build the internal enforcer from budget and/or explicit enforcer.
+        # Legacy budget= users get their BudgetManager wrapped automatically.
+        if budget and enforcer:
+            enforcer.add_policy(budget)
+            self._enforcer = enforcer
+        elif budget and not enforcer:
+            self._enforcer = PolicyEnforcer([budget])
+        elif enforcer:
+            self._enforcer = enforcer
+        else:
+            self._enforcer = None
+
         self._scorer = LOCOScheduler(
             agents, alpha=alpha, optimize_for=optimize_for, seed=seed
         )
@@ -229,21 +244,22 @@ class AsyncLOCOScheduler:
         agent = self.get_agent(agent_id)
         serving_task = agent.tasks[0] if agent.tasks else None
 
-        # Budget check BEFORE metrics/logging/hooks.
+        # Policy check BEFORE metrics/logging/hooks.
         # Rejected tasks must not inflate cost metrics or emit grant events.
-        if self.budget and serving_task:
+        if self._enforcer and serving_task:
             try:
-                self.budget.check(agent_id, serving_task.weight)
-            except BudgetExceededError:
-                loco_log.emit_budget_exceeded(
-                    tick=self._logical_tick,
-                    agent_id=agent_id,
-                    task=serving_task,
-                    current=self.budget.spent(agent_id),
-                    limit=self.budget.get_limit(agent_id),
-                    action=self.budget.on_exceeded,
-                    resource_name=self.resource.name,
-                )
+                self._enforcer.check_all(agent_id, serving_task)
+            except PolicyViolationError as exc:
+                if isinstance(exc, BudgetExceededError) and self.budget:
+                    loco_log.emit_budget_exceeded(
+                        tick=self._logical_tick,
+                        agent_id=agent_id,
+                        task=serving_task,
+                        current=self.budget.spent(agent_id),
+                        limit=self.budget.get_limit(agent_id),
+                        action=self.budget.on_exceeded,
+                        resource_name=self.resource.name,
+                    )
                 # Release resource so next waiter can proceed
                 await self.resource.release(agent_id)
                 await self._on_release()
@@ -275,9 +291,9 @@ class AsyncLOCOScheduler:
             async with self.resource.held_by(agent_id):
                 yield
         finally:
-            # Record spend to budget on successful completion
-            if self.budget and serving_task:
-                self.budget.record_spend(agent_id, serving_task.weight)
+            # Record completion to all policies
+            if self._enforcer and serving_task:
+                self._enforcer.record_all(agent_id, serving_task)
             # Fire completion hook + logging
             if serving_task:
                 loco_log.emit_release(
@@ -335,20 +351,21 @@ class AsyncLOCOScheduler:
         agent = self.get_agent(agent_id)
         serving_task = agent.tasks[0] if agent.tasks else None
 
-        # Budget check BEFORE metrics/logging/hooks.
-        if self.budget and serving_task:
+        # Policy check BEFORE metrics/logging/hooks.
+        if self._enforcer and serving_task:
             try:
-                self.budget.check(agent_id, serving_task.weight)
-            except BudgetExceededError:
-                loco_log.emit_budget_exceeded(
-                    tick=self._logical_tick,
-                    agent_id=agent_id,
-                    task=serving_task,
-                    current=self.budget.spent(agent_id),
-                    limit=self.budget.get_limit(agent_id),
-                    action=self.budget.on_exceeded,
-                    resource_name=self.resource.name,
-                )
+                self._enforcer.check_all(agent_id, serving_task)
+            except PolicyViolationError as exc:
+                if isinstance(exc, BudgetExceededError) and self.budget:
+                    loco_log.emit_budget_exceeded(
+                        tick=self._logical_tick,
+                        agent_id=agent_id,
+                        task=serving_task,
+                        current=self.budget.spent(agent_id),
+                        limit=self.budget.get_limit(agent_id),
+                        action=self.budget.on_exceeded,
+                        resource_name=self.resource.name,
+                    )
                 await self.resource.release(agent_id)
                 await self._on_release()
                 raise
@@ -390,9 +407,9 @@ class AsyncLOCOScheduler:
 
         # Use task captured at acquire time (may have been served by now)
         serving_task = handle._serving_task
-        # Record spend to budget on completion
-        if self.budget and serving_task:
-            self.budget.record_spend(handle.agent_id, serving_task.weight)
+        # Record completion to all policies
+        if self._enforcer and serving_task:
+            self._enforcer.record_all(handle.agent_id, serving_task)
         if serving_task:
             loco_log.emit_release(
                 tick=self._logical_tick,

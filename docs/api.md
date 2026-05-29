@@ -68,7 +68,7 @@ The full scheduler API for maximum control.
 
 ```python
 from loco import Agent, AsyncLOCOScheduler, SharedResource
-from loco.budget import BudgetManager
+from loco import PolicyEnforcer, BudgetPolicy, AccessPolicy, RatePolicy
 
 scheduler = AsyncLOCOScheduler(
     agents=[Agent(agent_id="a"), Agent(agent_id="b")],
@@ -79,7 +79,8 @@ scheduler = AsyncLOCOScheduler(
     on_task_started=callback,            # lifecycle hook
     on_task_completed=callback,
     auto_tune=True,
-    budget=BudgetManager(on_exceeded="reject"),
+    budget=BudgetPolicy(on_exceeded="reject"),  # v0.2 compat
+    enforcer=PolicyEnforcer([...]),       # v0.3 policy composition
 )
 ```
 
@@ -112,9 +113,13 @@ scheduler = AsyncLOCOScheduler(
 ## Task
 
 ```python
-from loco import Task
+from loco import Task, SecurityLabel
 
 task = Task(weight=3.0, task_type="anthropic:opus")
+task_with_labels = Task(
+    weight=2.0,
+    labels={"input": SecurityLabel.CONFIDENTIAL, "output": SecurityLabel.INTERNAL},
+)
 ```
 
 | Field | Type | Default | Description |
@@ -123,6 +128,7 @@ task = Task(weight=3.0, task_type="anthropic:opus")
 | `task_type` | `str` | `""` | Label (e.g., `"anthropic:sonnet"`) |
 | `age` | `int` | `0` | Ticks waited. Auto-incremented. |
 | `task_id` | `str` | auto | Unique identifier |
+| `labels` | `dict[str, SecurityLabel] \| None` | `None` | Security labels for task data |
 
 ---
 
@@ -200,13 +206,114 @@ Also: `record_actual_tokens()`, `empirical_weight()`, `actual_tokens_by_agent()`
 
 ---
 
+## PolicyEnforcer
+
+```python
+from loco import PolicyEnforcer, BudgetPolicy, AccessPolicy, RatePolicy
+
+enforcer = PolicyEnforcer([
+    BudgetPolicy(default_limit=50.0),
+    AccessPolicy(rules={"analyst": {"labels": ["public", "internal"]}}),
+    RatePolicy(limits={"batch": 10.0}, period=60.0),
+])
+```
+
+| Method | Description |
+|--------|------------|
+| `check_all(agent_id, task)` | Run all policies. Short-circuits on first rejection. Returns list of passed policy names. |
+| `record_all(agent_id, task)` | Record task completion to all policies. |
+| `add_policy(policy)` | Append a policy. |
+| `remove_policy(name)` | Remove by name. Returns the policy or None. |
+| `get_policy(name)` | Look up by name. |
+| `summary()` | Summary dict from all policies. |
+
+---
+
+## AccessPolicy
+
+```python
+from loco import AccessPolicy
+
+policy = AccessPolicy(rules={
+    "analyst": {"labels": ["public", "internal"]},
+    "auditor": {"labels": ["public", "internal", "confidential"]},
+})
+```
+
+Open by default -- agents not in rules are allowed. Tasks without labels always pass.
+
+---
+
+## RatePolicy
+
+```python
+from loco import RatePolicy
+
+policy = RatePolicy(limits={"batch": 10.0, "realtime": 100.0}, period=60.0)
+policy.remaining("batch")  # tokens left in bucket
+```
+
+Token bucket algorithm with automatic refill. Unlimited for agents not in `limits`.
+
+---
+
+## SecurityLabel
+
+```python
+from loco import SecurityLabel
+
+SecurityLabel.PUBLIC        # "public"
+SecurityLabel.INTERNAL      # "internal"
+SecurityLabel.CONFIDENTIAL  # "confidential"
+```
+
+String-based enum for JSON serialization. Used in Task labels and AccessPolicy rules.
+
+---
+
+## Plan / Step
+
+```python
+from loco import Plan, Step
+
+plan = Plan(steps=[
+    Step("fetch", agent="reader"),
+    Step("analyze", agent="analyst", depends_on=["fetch"]),
+])
+plan.validate()                    # check for cycles, missing deps
+plan.topological_sort()            # ["fetch", "analyze"]
+plan.ready_steps(completed=set())  # [Step("fetch")]
+plan.is_complete({"fetch", "analyze"})  # True
+```
+
+See [Execution Plans](concepts/plans.md) for usage patterns.
+
+---
+
+## SLOBudget
+
+```python
+from loco import SLOBudget, SLOState
+
+slo = SLOBudget(target_wait=20.0, window=100, warn=0.75, critical=0.90)
+state = slo.record("agent_a", completed_task)  # SLOState.HEALTHY
+slo.violation_rate    # 0.0 - 1.0
+slo.budget_remaining  # 1.0 - 0.0
+slo.reset()
+```
+
+See [SLO Error Budgets](concepts/slo.md) for details.
+
+---
+
 ## Exceptions
 
 | Exception | When |
 |-----------|------|
 | `BackpressureError` | `acquire()` when waiters >= max_waiters |
 | `ShutdownError` | `submit_task()` or `acquire()` after shutdown |
-| `BudgetExceededError` | `acquire()` when agent exceeds budget (reject mode) |
+| `PolicyViolationError` | `acquire()` when any policy rejects |
+| `BudgetExceededError` | `acquire()` when budget exceeded (subclass of PolicyViolationError) |
 | `TimeoutError` | `acquire(timeout=N)` when timeout expires |
 
 ---

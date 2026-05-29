@@ -18,22 +18,24 @@ from __future__ import annotations
 
 from typing import Any
 
+from loco.policy import Policy, PolicyViolationError
+from loco.task import Task
 
-class BudgetExceededError(Exception):
+
+class BudgetExceededError(PolicyViolationError):
     """Raised when an agent exceeds its budget ceiling."""
 
     def __init__(self, agent_id: str, current: float, limit: float, task_cost: float):
-        self.agent_id = agent_id
         self.current = current
         self.limit = limit
         self.task_cost = task_cost
-        super().__init__(
-            f"Agent {agent_id!r} would exceed budget: "
+        detail = (
             f"current={current:.1f} + task={task_cost:.1f} > limit={limit:.1f}"
         )
+        super().__init__("budget", agent_id, detail)
 
 
-class BudgetManager:
+class BudgetPolicy(Policy):
     """Per-agent budget ceilings.
 
     Set limits per agent. Check before granting resources. Three modes:
@@ -46,6 +48,8 @@ class BudgetManager:
                        None = no limit.
         on_exceeded: Action when budget is exceeded: "reject", "alert", "downgrade".
     """
+
+    name = "budget"
 
     def __init__(
         self,
@@ -93,11 +97,17 @@ class BudgetManager:
         """Reset all spend counters."""
         self._spent.clear()
 
-    def check(self, agent_id: str, task_cost: float) -> bool:
+    def check(self, agent_id: str, task_cost: Task | float = 0.0) -> bool:
         """Check if a task would exceed the agent's budget.
+
+        Accepts either a Task object (Policy interface) or a raw cost float
+        (backward-compatible with v0.2 callers).
 
         Returns True if within budget. Raises or logs depending on on_exceeded.
         """
+        if isinstance(task_cost, Task):
+            task_cost = task_cost.weight
+
         limit = self.get_limit(agent_id)
         if limit is None:
             return True
@@ -119,6 +129,10 @@ class BudgetManager:
             return False
         return True
 
+    def record(self, agent_id: str, task: Task) -> None:
+        """Record task completion cost. Called by PolicyEnforcer after release."""
+        self.record_spend(agent_id, task.weight)
+
     @property
     def alerts(self) -> list[dict[str, Any]]:
         """List of budget exceeded events."""
@@ -135,3 +149,7 @@ class BudgetManager:
                 "remaining": self.remaining(agent_id),
             }
         return result
+
+
+# Backward compatibility alias
+BudgetManager = BudgetPolicy

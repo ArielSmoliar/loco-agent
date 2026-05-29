@@ -47,6 +47,9 @@ nav:
     - Load Function: concepts/load-function.md
     - Contention Resolution: concepts/contention.md
     - Budget Management: concepts/budgets.md
+    - Policy Engine: concepts/policies.md
+    - Execution Plans: concepts/plans.md
+    - SLO Error Budgets: concepts/slo.md
   - API Reference: api.md
   - Adapters:
     - Overview: adapters/index.md

@@ -1,145 +1,233 @@
 # LOCO-Agent Roadmap
 
-> Ship schedule, scope, and dependencies for v0.1 through v0.2.
-
-## v0.1 — Core Scheduler (shipping May 28, 2026)
-
-The async-first scheduling engine. Proves the thesis works for AI agents.
-
-| Status | Feature |
-|--------|---------|
-| Done | Load function validation (simulation notebook, 3 scenarios) |
-| Done | Package scaffolding, Task/Agent/Scheduler/Resource classes |
-| Done | Async acquire/release with grant-time scoring |
-| Done | Backpressure, cancellation, lifecycle hooks |
-| Done | `optimize_for` API ("latency" / "balanced" / "throughput") |
-| Done | Full scenario validation — 4 scenarios, 120 tests |
-| In progress | Vanilla adapter + split acquire/release + dynamic agent registration |
-| In progress | Observability (structured JSON scheduling log, metrics API) |
-| In progress | Examples, sandbox CLI, documentation |
-| In progress | CI, release, SDK integration test plans (7 platforms) |
+> Development plan from v0.1 through v1.0. Solo founder timeline -- dates are targets, not commitments.
+> Lead positioning: **cost governance surface, scheduler engine underneath.**
 
 ---
 
-## v0.2 — Ecosystem + Enterprise
+## Shipped
 
-Framework adapters, enterprise features, and cross-platform integration. Phased into three drops so value ships incrementally.
+### v0.1 -- Core Scheduler (May 2026)
 
-### v0.2.0 — Direct-wrap adapters + cost tracking
+The async-first scheduling engine. Proved the 2011 thesis works for AI agent fleets.
 
-> 3-4 weeks after v0.1
+- Load function with grant-time scoring: `L(i) = alpha * (Qi/Qmax) + (1-alpha) * (Dmax_i/Dmax_max)`
+- Async acquire/release with priority wait queue, backpressure, cancellation
+- `optimize_for` API ("latency" / "balanced" / "throughput")
+- 4 validated scenarios (burst, fairness, webhook spike, MDASH security)
+- Vanilla adapter, lifecycle hooks, structured JSON scheduling log
+- Sandbox CLI, examples, AGPL-3.0 license
 
-The two SDKs that work with the context-manager API today, plus the feedback loop on weight estimates.
+### v0.2 -- Ecosystem + Cost Visibility (May 2026)
 
-| Feature | What it is | Estimate |
-|---------|------------|----------|
-| Anthropic SDK adapter | Wrap `client.messages.create()` in acquire/release. Compute weight from model tier + prompt tokens. | 1-2 days |
-| OpenAI Agents SDK adapter | Custom `ModelProvider` wrapper. Sits between agent loop and API. Token accounting via `GenerationSpanData`. | 3-4 days |
-| Empirical cost tracking | After each call completes, record actual token usage. Auto-adjust future weight estimates using exponential moving average. | 1 week |
-| PyPI package | `pip install loco-agent` works. Proper versioning, release automation, CI publish. | 2-3 days |
+Framework adapters, cost tracking, convenience API, PyPI distribution.
 
-**Why these first:** Anthropic and OpenAI use direct API calls — no callback boundary problem. Empirical cost tracking closes the weight estimation loop (static tiers become a bootstrap, not the steady state). PyPI makes adoption frictionless.
-
-**Dependencies:** v0.1 shipped.
-
-### v0.2.1 — Callback-based framework adapters + adaptive alpha
-
-> 4-5 weeks after v0.2.0
-
-The frameworks that need split acquire/release to hook into per-LLM-call callbacks.
-
-| Feature | What it is | Estimate |
-|---------|------------|----------|
-| LangChain adapter | `BaseCallbackHandler.on_llm_start` / `on_llm_end`. Extracts model name from `serialized`, prompt length from `prompts`. Auto-registers agents on first callback. | 2-3 days |
-| Google ADK adapter | `before_model_callback` / `after_model_callback`. Reads `ctx.model` and `ctx.agent_name`. Handles ADK's `ParallelAgent` (multiple concurrent sub-agents). | 2-3 days |
-| CrewAI adapter | `step_callback` on Agent for per-step scheduling. `task_callback` on Crew for task-level events. Weight from tool type or model config. | 2-3 days |
-| Adaptive alpha tuning | Nudge alpha based on observed wait-time variance (renormalization from thesis). When wait times diverge across agents, shift alpha toward latency. When queues grow unboundedly, shift toward throughput. | 1 week |
-
-**Why this group:** All three callback-based frameworks share the same integration pattern (split acquire/release). Once one works, the others follow the template. Adaptive alpha makes the scheduler self-tuning — removes the last manual knob.
-
-**Dependencies:** Split acquire/release API (v0.1 Day 8).
-
-**Integration hooks per framework:**
-
-| Framework | Pre-LLM hook | Post-LLM hook | Agent discovery |
-|-----------|-------------|---------------|----------------|
-| LangChain | `on_llm_start(serialized, prompts)` | `on_llm_end(response)` | Callback instance per agent |
-| Google ADK | `before_model_callback(ctx, req)` | `after_model_callback(ctx, resp)` | `ctx.agent_name` |
-| CrewAI | `step_callback(step_output)` | Implicit (step completes) | Agent role/name |
-
-### v0.2.2 — Cloud platform adapters + enterprise features
-
-> 5-6 weeks after v0.2.1
-
-Enterprise-grade: cloud provider integration, multi-resource scheduling, budget enforcement.
-
-| Feature | What it is | Estimate |
-|---------|------------|----------|
-| AWS Bedrock adapter | `RETURN_CONTROL` action group pauses the orchestration loop. LOCO-Agent decides when to resume via `InvokeAgent` with `returnControlInvocationResults`. AgentCore OTEL telemetry for passive metering. | 4-5 days |
-| Azure / AutoGen adapter | AutoGen v0.4 custom `AgentRuntime` — the most scheduler-friendly surface in the ecosystem. Wraps `SingleThreadedAgentRuntime`, adds load-aware dispatch before message delivery. Foundry Responses API proxy as alternative path. | 4-5 days |
-| Multi-resource contention | Agents acquiring multiple resources simultaneously (LLM + DB + GPU). Deadlock prevention via resource ordering. New scoring: `L(i, r)` per resource. | 2 weeks |
-| Budget ceilings | Per-agent spend limits with enforcement. `BudgetExceededError` when cumulative cost exceeds threshold. Configurable action: reject, downgrade model tier, or alert. | 1 week |
-| A2A protocol integration | Register LOCO-Agent as an A2A participant. Expose scheduling state via A2A agent card. Accept task submissions via A2A protocol from any compliant framework. | 2 weeks |
-| Prometheus / OTEL exporter | Export scheduling metrics (wait times, utilization, cost per agent) to standard observability stacks. | 3-4 days |
-
-**Why last:** Cloud adapters need real cloud accounts to test. Multi-resource contention is research-grade (thesis covers single-channel only). A2A spec is still stabilizing (v0.3 preview on Azure). Budget ceilings depend on empirical cost tracking (v0.2.0).
-
-**Platform integration hooks:**
-
-| Platform | Scheduling gate | Telemetry source | Agent discovery |
-|----------|----------------|-----------------|----------------|
-| AWS Bedrock | `RETURN_CONTROL` action group | AgentCore OTEL → CloudWatch | Action group registration |
-| AWS AgentCore | A2A protocol | OTEL traces | AgentCore Registry |
-| Azure Foundry | Responses API proxy | Azure Monitor / App Insights | Entra Agent Registry |
-| AutoGen v0.4 | Custom `AgentRuntime` | Runtime message traces | Topic/subscription registration |
+- **7 framework adapters:** Anthropic SDK, OpenAI Agents SDK, LangChain, Google ADK, CrewAI, AWS Bedrock, AutoGen
+- **BudgetManager:** Per-agent spend limits with reject/alert/downgrade enforcement modes
+- **Multi-resource contention:** Agents acquiring multiple resources simultaneously
+- **Adaptive alpha:** Self-tuning alpha based on observed wait-time variance
+- **A2A protocol:** Agent-to-Agent interoperability (agent card, task handling)
+- **Convenience API:** `loco.configure()`, `loco.wrap()`, `loco.scheduled()`, `loco.set_budget()`
+- **Pretty terminal output:** `LOCO_LOG=pretty` for colored human-readable scheduling events
+- **CLI:** `loco doctor` (auto-detect frameworks), `loco version`
+- **PyPI:** `pip install loco-agent` (v0.2.2)
+- **Docs site:** MkDocs Material on GitHub Pages
+- **Demos:** loco-adk-demo (live Gemini), loco-autogen-demo (AutoGen security pipeline)
+- 289 tests across 17 test files
 
 ---
 
-## Timeline summary
+## In Progress
 
-```
-May 28          v0.1.0   Core scheduler ships
-  |               |
-  3-4 weeks       |
-  |               v
-Jun 25          v0.2.0   Anthropic + OpenAI adapters, empirical cost, PyPI
-  |               |
-  4-5 weeks       |
-  |               v
-Aug 1           v0.2.1   LangChain + ADK + CrewAI adapters, adaptive alpha
-  |               |
-  5-6 weeks       |
-  |               v
-Sep 12          v0.2.2   AWS + Azure adapters, multi-resource, A2A, budgets
+### v0.3 -- Cost Governance + Policy Engine (June-July 2026)
+
+> The positioning pivot: cost governance is the product surface, the scheduler is the engine.
+> Enterprises ask "who's spending the budget?" before "who goes next?"
+
+Generalizes BudgetManager into a policy framework. Adds static execution plans (validated by
+Anthropic's dynamic workflows -- they generate JS orchestration scripts, proving plan-as-code
+works at scale). Adds security metadata to task envelopes (NVIDIA secure agent architecture).
+
+**Why this order:** The CIO dinner signal (Levie, 5/19) says token costs are the #1 enterprise
+concern. Microsoft AGT ships policy enforcement without scheduling. LOCO ships scheduling without
+policy enforcement. v0.3 closes the gap -- cost governance + policy in one dispatch decision.
+
+| Feature | What it is | Source |
+|---------|------------|--------|
+| **PolicyEnforcer** | Unified enforcement layer at dispatch point. Evaluates policies before granting resource access. Replaces `budget=` parameter (backward-compatible). | NVIDIA arXiv:2603.50016 |
+| **BudgetPolicy** | BudgetManager refactored as a policy type. Same behavior, composable with other policies. Migration: `BudgetManager` stays as public alias. | Existing BudgetManager |
+| **AccessPolicy** | Which tools/resources each agent can use. Static rules evaluated at dispatch. | NVIDIA "static access-control rules" |
+| **RatePolicy** | Per-agent request rate limits (e.g., max 10 acquires/minute). | Enterprise request pattern |
+| **Static Plan** | Immutable execution DAG submitted with a task batch. Steps with dependencies. Audit-friendly -- "what was the plan when this ran?" is always answerable. | Anthropic dynamic workflows (validation), NVIDIA Position 1 |
+| **SecurityLabel** | Optional metadata on task inputs/outputs (`public`/`internal`/`confidential`). Logged in scheduling events. Flow enforcement deferred to v0.5. | NVIDIA IFC labels |
+| **Delegation audit records** | Every grant emits structured record: who requested, what was dispatched, why this routing, what it cost. | O'Reilly delegation problem (Prakash) |
+| **SLO error budgets** | State machine (HEALTHY -> WARNING -> CRITICAL -> EXHAUSTED) with burn-rate alerting. Replaces binary reject/alert/downgrade. | Microsoft AGT |
+
+**API sketch:**
+
+```python
+from loco import Plan, Step, PolicyEnforcer, BudgetPolicy, AccessPolicy
+
+plan = Plan(steps=[
+    Step("fetch", agent="reader"),
+    Step("analyze", agent="analyst", depends_on=["fetch"]),
+    Step("respond", agent="writer", depends_on=["analyze"]),
+])
+
+enforcer = PolicyEnforcer(policies=[
+    BudgetPolicy(limits={"analyst": 50.0, "writer": 20.0}),
+    AccessPolicy(rules={"reader": {"resources": ["email_api"]}}),
+])
+
+scheduler = AsyncLOCOScheduler(
+    agents=agents, resource=resource,
+    plan=plan, enforcer=enforcer,
+)
 ```
 
-Solo timeline. With a second contributor, v0.2.1 and v0.2.2 can overlap (adapters are independent of core engine work).
+**Migration path:** `BudgetManager` stays as alias. `budget=` parameter continues to work
+(internally wraps in PolicyEnforcer). Deprecation warning on `budget=` in v0.5.
 
-| Milestone | Solo | 2-person |
-|-----------|------|----------|
-| v0.2.0 | Jun 25 | Jun 20 |
-| v0.2.1 | Aug 1 | Jul 15 |
-| v0.2.2 | Sep 12 | Aug 15 |
+**Stretch goal:** Security-aware feedback middleware (validate tool results through structured
+checks before the orchestrator sees raw text -- blocks indirect prompt injection vector).
 
 ---
 
-## Risk register
+### v0.4 -- Enterprise Cost Dashboard + Observability (August-September 2026)
+
+> The sellable surface. Platform engineers need to answer: "where are my tokens going?"
+
+| Feature | What it is |
+|---------|------------|
+| **Prometheus / OTEL exporter** | Export scheduling metrics (wait times, utilization, cost per agent, policy violations) to standard observability stacks |
+| **Cost attribution** | Per-team, per-workflow, per-model cost breakdown. Roll up from per-task cost records already in scheduling log |
+| **Token-to-outcome tracking** | Was the token spend worth it? Link scheduling decisions to task outcomes (success/failure/quality score). Closes the loop Jaya Gupta's context graphs miss |
+| **Trust scoring** | 0-1000 behavioral score per agent with time decay. Fast agents get priority, timeout-prone agents get deprioritized. Dynamic weight adjustment from observed behavior |
+| **Multi-tenant isolation** | Separate scheduling domains within one process. Tenant A's agents can't starve Tenant B. Per-tenant cost ceilings |
+| **Grafana template** | Pre-built dashboard for LOCO scheduling metrics. Ships as JSON template after Prometheus exporter |
+
+**Enterprise tier line:** Cost attribution, multi-tenant isolation, and trust scoring are
+enterprise features (commercial license). The Prometheus exporter and scheduling log stay open core.
+
+---
+
+## Planned
+
+### v0.5 -- Dynamic Plans + Durable Execution (Q4 2026)
+
+> Static plans (v0.3) prove the model. v0.5 makes plans mutable at runtime.
+
+| Feature | What it is | Informed by |
+|---------|------------|-------------|
+| **Mutable plans** | Plans revised in-flight based on environment feedback. Agent hits a 410 Gone endpoint -- plan adapts. Harder to audit, but necessary for long-horizon agents | NVIDIA Position 1, Anthropic dynamic workflows |
+| **Resumable workflows** | Interrupted workflows skip completed steps on restart. Completed results cached. | Anthropic dynamic workflow caching |
+| **External state management** | Coordination state lives outside agent conversation contexts. Prevents context window saturation at scale | Anthropic dynamic workflows key insight |
+| **Environment health signals** | Load function ingests environment health (container status, API health, dependency availability), not just cost/latency | Cursor cloud agent lessons |
+| **Implementer/Verifier/Fixer template** | Built-in workflow pattern: implementer executes, verifier validates, fixer corrects. Ships as a reusable Plan template | Anthropic dynamic workflow pattern |
+| **SecurityLabel flow enforcement** | No write-down from confidential to public. Enforced at dispatch, not just logged | NVIDIA IFC, v0.3 label foundation |
+| **Saga compensation** | Structured rollback for multi-step pipelines when mid-pipeline budget cap hit. Not just an exception | Microsoft AGT |
+
+---
+
+### v0.6 -- Cross-Provider Intelligence (Q1 2027)
+
+> The multi-provider moat. No single vendor solves cross-provider scheduling.
+
+| Feature | What it is |
+|---------|------------|
+| **Model-tier routing** | Automatically select which model/provider to use based on task complexity, load, and budget. Route simple tasks to Flash, complex tasks to Opus/o3 |
+| **Cross-provider cost normalization** | Normalize token costs across Claude, GPT, Gemini for apples-to-apples comparison and routing decisions |
+| **Empirical weight adjustment** | After each call, record actual vs. predicted token usage. Auto-adjust future weight estimates via exponential moving average |
+| **Provider failover** | If one provider rate-limits, transparently reroute to another with equivalent capability |
+| **Streaming support** | Scheduling for streaming LLM responses (partial token consumption). Different resource hold model |
+
+---
+
+### v1.0 -- LOCO Cloud (2027)
+
+> Managed scheduling layer. The Confluent to LOCO-Agent's Kafka.
+
+| Feature | What it is |
+|---------|------------|
+| **Managed scheduling** | Cloud-hosted LOCO scheduler. Pay per scheduling decision or per agent-hour |
+| **Fleet dashboard** | Web UI for real-time scheduling visualization, cost monitoring, policy management |
+| **SSO / RBAC** | Enterprise identity integration. Role-based access to scheduling domains |
+| **Aggregate quota management** | When 50 teams run dynamic workflow sessions simultaneously, manage the aggregate token spend and API quota across all of them |
+| **Agent topology detection** | Hidden terminal problem -- detecting agents that can't see each other's load. Distributed protocol design (thesis extension) |
+
+---
+
+## Competitive Landscape (as of May 2026)
+
+These signals shape prioritization. Every confirmed gap is a feature LOCO fills.
+
+| Platform | Scheduling | Cost governance | Policy enforcement | LOCO integration |
+|----------|-----------|----------------|-------------------|-----------------|
+| **Anthropic Claude Code** | Dynamic workflows (JS orchestration, 1K agents, 16 concurrent). Single-model, single-session. Zero cost governance. | None | None | `PreToolUse` hook on "Agent" tool |
+| **Anthropic Agent SDK** | `max_turns` / `max_budget_usd` (termination, not scheduling) | USD cap only | None | Dynamic `maxTurns` at spawn |
+| **Google ADK / Managed Agents** | None. `ParallelAgent` fires all sub-agents simultaneously | None | None | `before_agent_callback` bypass |
+| **AWS AgentCore / Bedrock** | Account-level service quotas only | None | None | `RETURN_CONTROL` action group |
+| **Azure / AutoGen v0.4** | None. PTU fast-fails assume app-layer scheduler | None | AGT (separate toolkit) | Custom `AgentRuntime` |
+| **OpenAI Agents SDK** | 1 knob: `max_function_tool_concurrency` | `service_tier: "flex"` | None | Custom `ModelProvider` |
+| **Microsoft AGT** | None (out of scope) | On roadmap | Yes (0% violation rate) | Pre-scheduling hook |
+
+**The universal finding:** Every platform has zero scheduling infrastructure. Orchestration is
+emerging (Anthropic dynamic workflows), but cost governance and cross-provider scheduling
+remain unaddressed. LOCO-Agent is the layer between orchestration and resource allocation.
+
+---
+
+## Design Principles (Carry Forward)
+
+These principles are informed by what we've learned and apply to all future versions.
+
+1. **Cost governance is the product surface.** The scheduler is the engine underneath. Lead with
+   "set a $50K/month cap on the marketing team's agent fleet" not "load-aware priority scoring."
+
+2. **Plan-as-code, not plan-as-chat.** Orchestration decisions should be expressed as executable
+   structures (DAGs, policies), not LLM reasoning. The LLM reasons once about strategy;
+   execution is mechanical. (Validated by Anthropic dynamic workflows.)
+
+3. **Framework-agnostic, provider-agnostic.** Enterprises run mixed fleets. LOCO schedules across
+   all of them through a single dispatch layer.
+
+4. **The scheduler is the natural audit layer.** It's the only component that sees who requested,
+   what was dispatched, why, what it cost, and what it produced -- all at a single decision point.
+
+5. **Be a dial, not a gate.** Harness boundaries loosen as agents mature (Cursor lesson).
+   LOCO should be easy to tune down, not rigid to rip out.
+
+6. **External state, not conversation state.** Coordination state must live outside agent
+   contexts to scale beyond one session. (Anthropic dynamic workflows key insight.)
+
+---
+
+## Risk Register
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Multi-resource deadlock prevention is hard | High | v0.2.2 slips | Start with resource ordering (simple, proven). Defer general deadlock detection to v0.3. |
-| A2A spec churn (currently v0.3 preview) | Medium | Rework | Build against stable subset. Gate A2A release on spec GA. |
-| Framework SDK breaking changes | Medium | Adapter rework | Pin SDK versions in tests. Adapters are thin — rework is days not weeks. |
-| Cloud testing needs real accounts | Low | Delays AWS/Azure adapters | Use LocalStack for AWS. Use AutoGen local runtime for Azure. Cloud validation in CI with secrets. |
-| Adaptive alpha tuning doesn't converge | Medium | Feature cut | Ship as experimental flag. Static alpha (v0.1) is the safe fallback. |
-| Solo bandwidth | High | Everything slips | Prioritize adapters by ecosystem size: LangChain > OpenAI > ADK > CrewAI > AWS > Azure. Cut A2A first if needed. |
+| Solo bandwidth | High | Everything slips right | Keep v0.3 tight. Cut stretch goals first. Adapter maintenance is low-cost (thin wrappers) |
+| Framework SDK breaking changes | Medium | Adapter rework | Pin SDK versions in tests. Adapters are thin -- rework is days not weeks |
+| A2A spec churn | Medium | Rework | Build against stable subset. Gate on spec GA |
+| Dynamic workflows commoditize orchestration | Low | Positioning pressure | LOCO is the cross-provider layer above orchestration. Dynamic workflows validate the problem, not compete with the solution |
+| Enterprise sales cycle before revenue | High | Runway pressure | Open core model. Cost dashboard is first revenue conversation. Design partners before sales |
+| Mutable plans (v0.5) open attack surface | Medium | Security regression | Ship static plans first (v0.3). Mutable plans require security review + adversarial testing |
 
 ---
 
-## What's explicitly NOT in v0.2
+## Use Cases by Version
 
-- **Agent topology / hidden terminal problem** — detecting agents that can't see each other's load. Requires distributed protocol design. v0.3+.
-- **Multi-tenant scheduling** — separate scheduling domains within one process. Enterprise tier, needs design.
-- **Model-tier routing** — automatically selecting which model to use based on load and budget. Depends on budget ceilings + empirical cost tracking. v0.3.
-- **Streaming support** — scheduling for streaming LLM responses (partial token consumption). Needs different resource model. v0.3.
-- **GUI dashboard** — visual scheduling monitor. After Prometheus exporter ships, this becomes a Grafana template. v0.3.
+| Use case | First supported | Key features |
+|----------|----------------|-------------|
+| Multi-agent API scheduling | v0.1 | Load function, async acquire/release |
+| Framework-agnostic integration | v0.2 | 7 adapters, convenience API |
+| Per-agent/team cost limits | v0.2 | BudgetManager |
+| Security pipeline (auditor/debater/prover) | v0.2 | Weighted queue depth, multi-model |
+| Policy-governed dispatch | v0.3 | PolicyEnforcer, AccessPolicy, RatePolicy |
+| Compliance audit trail | v0.3 | Delegation audit records, SLO error budgets |
+| Enterprise cost dashboard | v0.4 | Prometheus export, cost attribution, Grafana |
+| Multi-tenant scheduling | v0.4 | Tenant isolation, per-tenant ceilings |
+| Long-horizon agent workflows | v0.5 | Mutable plans, resumable workflows, saga compensation |
+| GPU pool scheduling | v0.5 | Resource-agnostic load function (same contention model) |
+| Cross-provider model routing | v0.6 | Model-tier routing, cost normalization, failover |
+| Managed scheduling (SaaS) | v1.0 | LOCO Cloud, fleet dashboard, RBAC |
