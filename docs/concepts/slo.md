@@ -1,3 +1,8 @@
+---
+title: "SLO Error Budgets"
+description: "Monitor scheduling quality with state machine-based error budget tracking"
+---
+
 # SLO Error Budgets
 
 Track wait-time SLO violations with a state machine. SLOBudget is an observability primitive -- it monitors completed tasks and tells you when your scheduling quality is degrading.

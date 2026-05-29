@@ -1,3 +1,8 @@
+---
+title: "LangChain"
+description: "Schedule LangChain LLM calls with LOCO-Agent"
+---
+
 # LangChain Adapter
 
 Callback handler that hooks into `on_llm_start` / `on_llm_end` for per-LLM-call scheduling.

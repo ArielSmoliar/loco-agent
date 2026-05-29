@@ -1,3 +1,8 @@
+---
+title: "API Reference"
+description: "Every class, method, and parameter in LOCO-Agent"
+---
+
 # API Reference
 
 ## Convenience API

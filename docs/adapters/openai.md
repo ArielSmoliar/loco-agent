@@ -1,3 +1,8 @@
+---
+title: "OpenAI SDK"
+description: "Schedule OpenAI API calls with LOCO-Agent"
+---
+
 # OpenAI SDK Adapter
 
 Wraps `client.chat.completions.create()` with LOCO scheduling and cost tracking.

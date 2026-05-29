@@ -1,3 +1,8 @@
+---
+title: "Framework Adapters"
+description: "Integrate LOCO-Agent with Anthropic, OpenAI, Google ADK, LangChain, CrewAI, AWS Bedrock, and AutoGen"
+---
+
 # Framework Adapters
 
 LOCO-Agent ships 7 framework adapters. Each one wraps LLM calls in LOCO scheduling so your agent code doesn't change.

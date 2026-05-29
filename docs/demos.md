@@ -1,3 +1,8 @@
+---
+title: "Demos"
+description: "Working demo applications that showcase LOCO-Agent with real frameworks"
+---
+
 # Demos
 
 Working demo applications that showcase LOCO-Agent with real frameworks.

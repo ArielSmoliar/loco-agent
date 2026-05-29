@@ -1,3 +1,8 @@
+---
+title: "Budget Management"
+description: "Per-agent spend limits with automatic enforcement on every acquire() call"
+---
+
 # Budget Management
 
 Per-agent spend limits with automatic enforcement on every `acquire()` call.

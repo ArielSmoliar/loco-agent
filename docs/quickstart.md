@@ -1,6 +1,9 @@
-# Quick Start
+---
+title: "Quick Start"
+description: "Get LOCO-Agent running in 5 minutes. No API keys needed."
+---
 
-Get LOCO-Agent running in 5 minutes. No API keys needed.
+# Quick Start
 
 ## Install
 

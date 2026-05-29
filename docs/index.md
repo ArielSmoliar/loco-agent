@@ -1,3 +1,8 @@
+---
+title: "LOCO-Agent"
+description: "Load-aware scheduling and cost governance for multi-agent AI systems"
+---
+
 # LOCO-Agent
 
 **Load-aware scheduling and cost governance for multi-agent AI systems.**

@@ -1,3 +1,8 @@
+---
+title: "Google ADK"
+description: "Schedule Google ADK agent calls with LOCO-Agent"
+---
+
 # Google ADK Adapter
 
 Hooks into ADK's `before_model_callback` / `after_model_callback` for per-LLM-call scheduling.

@@ -1,3 +1,8 @@
+---
+title: "Contention Resolution"
+description: "How the scheduler resolves contention when multiple agents compete for resources"
+---
+
 # Contention Resolution
 
 When multiple agents call `acquire()` and the resource is full, the scheduler resolves contention through a score-and-grant cycle.

@@ -1,3 +1,8 @@
+---
+title: "AutoGen"
+description: "Schedule AutoGen agent messages with LOCO-Agent"
+---
+
 # Azure / AutoGen Adapter
 
 Wraps AutoGen v0.4 message delivery with LOCO scheduling. Supports both `send_message()` (point-to-point) and `publish_message()` (pub/sub).

@@ -1,3 +1,8 @@
+---
+title: "Load Function"
+description: "The core equation that decides which agent gets the resource next"
+---
+
 # Load Function
 
 The load function is the core equation that decides which agent gets the resource next.
@@ -48,8 +53,9 @@ scheduler = AsyncLOCOScheduler(agents, resource, optimize_for="balanced")
 scheduler = AsyncLOCOScheduler(agents, resource, alpha=0.25)
 ```
 
-!!! warning "Do not use alpha > 0.5 in production"
-    Simulation proves that alpha >= 0.75 causes starvation -- some agents complete zero tasks. The Dmax term is load-bearing for fairness.
+<Warning title="Do not use alpha > 0.5 in production">
+  Simulation proves that alpha >= 0.75 causes starvation -- some agents complete zero tasks. The Dmax term is load-bearing for fairness.
+</Warning>
 
 ## Adaptive Alpha
 

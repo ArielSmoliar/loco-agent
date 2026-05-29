@@ -1,3 +1,8 @@
+---
+title: "Anthropic SDK"
+description: "Schedule Claude API calls with LOCO-Agent"
+---
+
 # Anthropic SDK Adapter
 
 Wraps `client.messages.create()` with LOCO scheduling and cost tracking.

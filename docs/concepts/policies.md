@@ -1,3 +1,8 @@
+---
+title: "Policy Engine"
+description: "Composable policies for cost governance, access control, and rate limiting"
+---
+
 # Policy Engine
 
 Composable policies evaluated at dispatch time. The PolicyEnforcer sits between the scheduler's grant decision and task execution, checking each policy in order and short-circuiting on the first rejection.

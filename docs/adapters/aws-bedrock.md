@@ -1,3 +1,8 @@
+---
+title: "AWS Bedrock"
+description: "Schedule AWS Bedrock InvokeModel calls with LOCO-Agent"
+---
+
 # AWS Bedrock Adapter
 
 Wraps Bedrock `invoke_model()` with LOCO scheduling.

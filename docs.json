@@ -1,0 +1,91 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "LOCO-Agent",
+  "logo": {
+    "light": "/docs/assets/logo-light.svg",
+    "dark": "/docs/assets/logo-dark.svg"
+  },
+  "favicon": "/docs/assets/favicon.svg",
+  "colors": {
+    "primary": "#E65100",
+    "light": "#FF8A65",
+    "dark": "#BF360C",
+    "background": {
+      "light": "#FAFAFA",
+      "dark": "#0D1117"
+    }
+  },
+  "topbarLinks": [
+    {
+      "label": "GitHub",
+      "url": "https://github.com/ArielSmoliar/loco-agent"
+    },
+    {
+      "label": "PyPI",
+      "url": "https://pypi.org/project/loco-agent/"
+    }
+  ],
+  "anchors": [
+    {
+      "icon": "github",
+      "url": "https://github.com/ArielSmoliar/loco-agent",
+      "label": "GitHub"
+    }
+  ],
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "docs/index",
+              "docs/quickstart"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "docs/concepts/load-function",
+              "docs/concepts/contention",
+              "docs/concepts/budgets",
+              "docs/concepts/policies",
+              "docs/concepts/plans",
+              "docs/concepts/slo"
+            ]
+          },
+          {
+            "group": "API Reference",
+            "pages": [
+              "docs/api"
+            ]
+          },
+          {
+            "group": "Adapters",
+            "pages": [
+              "docs/adapters/index",
+              "docs/adapters/anthropic",
+              "docs/adapters/openai",
+              "docs/adapters/google-adk",
+              "docs/adapters/langchain",
+              "docs/adapters/crewai",
+              "docs/adapters/aws-bedrock",
+              "docs/adapters/autogen"
+            ]
+          },
+          {
+            "group": "Demos",
+            "pages": [
+              "docs/demos"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footerSocials": {
+    "github": "https://github.com/ArielSmoliar/loco-agent",
+    "x": "https://x.com/ArielSmoliar"
+  }
+}

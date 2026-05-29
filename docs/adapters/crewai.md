@@ -1,3 +1,8 @@
+---
+title: "CrewAI"
+description: "Schedule CrewAI agent calls with LOCO-Agent"
+---
+
 # CrewAI Adapter
 
 Per-step scheduling via `step_callback` and coarse-grained crew-level scheduling.

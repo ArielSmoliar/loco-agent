@@ -1,3 +1,8 @@
+---
+title: "Execution Plans"
+description: "Static DAG-based task orchestration with dependency tracking"
+---
+
 # Execution Plans
 
 A Plan is a static DAG of Steps that defines an execution order with dependencies. Plans are standalone data structures in v0.3 -- you compose them with the scheduler manually.
