@@ -266,7 +266,7 @@ class AsyncLOCOScheduler:
                 raise
 
         if serving_task:
-            self.metrics.record_task_cost(agent_id, serving_task.weight)
+            self.metrics.record_task_cost(agent_id, serving_task.weight, serving_task)
             scores = self._scorer.compute_load_scores()
             budget_remaining = (
                 self.budget.remaining(agent_id) if self.budget else None
@@ -371,7 +371,7 @@ class AsyncLOCOScheduler:
                 raise
 
         if serving_task:
-            self.metrics.record_task_cost(agent_id, serving_task.weight)
+            self.metrics.record_task_cost(agent_id, serving_task.weight, serving_task)
             scores = self._scorer.compute_load_scores()
             budget_remaining = (
                 self.budget.remaining(agent_id) if self.budget else None

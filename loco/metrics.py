@@ -39,15 +39,19 @@ class SchedulerMetrics:
     def __init__(self, scheduler: AsyncLOCOScheduler, ema_alpha: float = 0.3) -> None:
         self._scheduler = scheduler
         self._cumulative_cost: dict[str, float] = {}
+        self._session_costs: dict[str, dict[str, float]] = {}  # {session_id: {agent_id: cost}}
         self._actual_tokens: dict[str, list[int]] = {}
         self._ema_weights: dict[str, float] = {}
         self._ema_alpha = ema_alpha  # EMA smoothing factor (higher = more recent)
 
-    def record_task_cost(self, agent_id: str, cost: float) -> None:
+    def record_task_cost(self, agent_id: str, cost: float, task: "Task | None" = None) -> None:
         """Record a task's cost for the given agent. Called internally on grant."""
         self._cumulative_cost[agent_id] = (
             self._cumulative_cost.get(agent_id, 0.0) + cost
         )
+        if task and task.session_id is not None:
+            session = self._session_costs.setdefault(task.session_id, {})
+            session[agent_id] = session.get(agent_id, 0.0) + cost
 
     def cost_by_agent(self) -> dict[str, float]:
         """Cumulative task cost per agent. Returns {agent_id: total_weight}."""
@@ -90,6 +94,28 @@ class SchedulerMetrics:
             agent_id: len(agent.completed_tasks)
             for agent_id, agent in self._scheduler.agents.items()
         }
+
+    # --- Session cost tracking ---
+
+    def cost_by_session(self) -> dict[str, float]:
+        """Total cost per session. Returns {session_id: total_cost}."""
+        return {
+            sid: sum(agents.values())
+            for sid, agents in self._session_costs.items()
+        }
+
+    def session_cost(self, session_id: str) -> float:
+        """Total cost for a specific session."""
+        agents = self._session_costs.get(session_id, {})
+        return sum(agents.values())
+
+    def cost_by_session_and_agent(self, session_id: str) -> dict[str, float]:
+        """Per-agent cost breakdown within a session."""
+        return dict(self._session_costs.get(session_id, {}))
+
+    def sessions(self) -> list[str]:
+        """List of all session IDs that have recorded costs."""
+        return list(self._session_costs.keys())
 
     # --- Empirical cost tracking ---
 

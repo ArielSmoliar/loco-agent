@@ -29,6 +29,7 @@ class Task:
     age: int = 0
     task_type: str = "default"
     labels: dict[str, SecurityLabel] | None = None
+    session_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.weight < 1.0:

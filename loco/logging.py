@@ -44,6 +44,8 @@ def emit_enqueue(
     }
     if task.labels:
         event["labels"] = {k: str(v) for k, v in task.labels.items()}
+    if task.session_id is not None:
+        event["session_id"] = task.session_id
     logger.info(_serialize_event(event))
     return event
 
