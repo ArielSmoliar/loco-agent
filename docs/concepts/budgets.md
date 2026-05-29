@@ -75,6 +75,34 @@ budget.summary()              # Full state for all agents
 budget.alerts                 # List of all exceeded events
 ```
 
+## Session Cost Tracking
+
+Tag tasks with a `session_id` to track costs per session (request, workflow, conversation):
+
+```python
+from loco import Task
+
+task = Task(weight=2.0, session_id="req-abc123")
+```
+
+Query session costs:
+
+```python
+scheduler.metrics.cost_by_session()
+# {"req-abc123": 17.0, "req-def456": 8.0}
+
+scheduler.metrics.session_cost("req-abc123")
+# 17.0
+
+scheduler.metrics.cost_by_session_and_agent("req-abc123")
+# {"analyst": 12.0, "reviewer": 5.0}
+
+scheduler.metrics.sessions()
+# ["req-abc123", "req-def456"]
+```
+
+Tasks without `session_id` are tracked in agent totals but not in session rollups.
+
 ## Resetting Budgets
 
 ```python

@@ -292,6 +292,16 @@ scheduler.metrics.agent_cost("fraud-detector")
 # 847.5
 ```
 
+Session cost tracking (tag tasks with `session_id`):
+
+```python
+task = Task(weight=2.0, session_id="req-abc123")
+
+scheduler.metrics.cost_by_session()                        # {"req-abc123": 17.0}
+scheduler.metrics.session_cost("req-abc123")               # 17.0
+scheduler.metrics.cost_by_session_and_agent("req-abc123")  # {"analyst": 12.0, "reviewer": 5.0}
+```
+
 Also: `record_actual_tokens(agent_id, task, tokens)`, `empirical_weight(agent_id)`, `actual_tokens_by_agent()`, `total_actual_tokens()`.
 
 ### BudgetManager

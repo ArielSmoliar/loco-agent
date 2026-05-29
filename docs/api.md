@@ -134,6 +134,7 @@ task_with_labels = Task(
 | `age` | `int` | `0` | Ticks waited. Auto-incremented. |
 | `task_id` | `str` | auto | Unique identifier |
 | `labels` | `dict[str, SecurityLabel] \| None` | `None` | Security labels for task data |
+| `session_id` | `str \| None` | `None` | Session/workflow ID for cost attribution |
 
 ---
 
@@ -205,6 +206,15 @@ budget = BudgetManager(default_limit=100.0, on_exceeded="reject")
 scheduler.metrics.cost_by_agent()     # {"analyst": 47.5, "batch": 12.0}
 scheduler.metrics.total_cost()        # 59.5
 scheduler.metrics.agent_cost("analyst")  # 47.5
+```
+
+Session cost tracking:
+
+```python
+scheduler.metrics.cost_by_session()                        # {"session-abc": 17.0}
+scheduler.metrics.session_cost("session-abc")              # 17.0
+scheduler.metrics.cost_by_session_and_agent("session-abc") # {"analyst": 12.0, "reviewer": 5.0}
+scheduler.metrics.sessions()                               # ["session-abc", "session-def"]
 ```
 
 Also: `record_actual_tokens()`, `empirical_weight()`, `actual_tokens_by_agent()`, `total_actual_tokens()`.
