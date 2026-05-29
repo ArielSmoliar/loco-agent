@@ -47,6 +47,27 @@ python run_mock.py --capacity 1         # heavy PTU contention
 | Investigator | 2 | gpt-4o | 3.0 | 12 each |
 | Responder | 1 | gpt-4o | 3.0 | 15 |
 
+## AWS Bedrock -- Document Processing Pipeline
+
+8 agents across 4 roles processing financial documents through a multi-model Bedrock pipeline. Demonstrates v0.3 PolicyEnforcer with budget + access control + rate limiting. Reviewer (Opus) hits its budget cap; confidential documents (SARs, audits) are restricted to the reviewer agent via AccessPolicy.
+
+**Repo:** [github.com/ArielSmoliar/loco-bedrock-demo](https://github.com/ArielSmoliar/loco-bedrock-demo)
+
+```bash
+git clone https://github.com/ArielSmoliar/loco-bedrock-demo.git
+cd loco-bedrock-demo && pip install -e .
+python run_mock.py                  # 3 policies active
+python run_mock.py --capacity 1     # heavy contention
+python run_mock.py --rate-limit 5   # tight rate limits
+```
+
+| Role | Count | Model | Weight | Budget | Label Access |
+|------|-------|-------|--------|--------|-------------|
+| Intake | 3 | Claude Haiku | 1.0 | 30 each | public, internal |
+| Analyst | 2 | Claude Sonnet | 2.0 | 40 each | public, internal |
+| Reviewer | 1 | Claude Opus | 5.0 | 25 | all (incl. confidential) |
+| Summarizer | 2 | Claude Haiku | 1.0 | uncapped | public, internal |
+
 ## Built-In Examples
 
 ```bash
