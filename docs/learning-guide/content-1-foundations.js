@@ -24,11 +24,27 @@ window.COURSE_SECTIONS.push({
         'Treating it as a rate limiter -- LOCO is a fairness-aware scheduler, not just a concurrency limiter. A semaphore limits throughput; LOCO decides priority'
       ],
       exercise: '<strong>Step 1 -- Get the code.</strong> Open a terminal and clone the repository:<br>' +
-        '<pre><code>git clone https://github.com/ArielSmoliar/loco-agent.git\ncd loco-agent</code></pre>' +
-        '<strong>Step 2 -- Install dependencies.</strong> Create a virtual environment (recommended) and install in development mode:<br>' +
-        '<pre><code>python -m venv .venv\nsource .venv/bin/activate   # On Windows: .venv\\Scripts\\activate\npip install -e ".[dev]"</code></pre>' +
+        '<pre><code>git clone https://github.com/ArielSmoliar/loco-agent.git</code></pre>' +
+        'Then enter the project directory:<br>' +
+        '<pre><code>cd loco-agent</code></pre>' +
+        'Verify you are in the right place -- you should see <code>pyproject.toml</code> listed:<br>' +
+        '<pre><code>ls pyproject.toml</code></pre>' +
+        'If you get "No such file", make sure you are inside the <code>loco-agent</code> folder that was created by the clone command.<br><br>' +
+        '<strong>Step 2 -- Install dependencies.</strong> LOCO-Agent requires <strong>Python 3.10 or newer</strong>. Check your version first:<br>' +
+        '<pre><code>python3 --version</code></pre>' +
+        'If it shows 3.9 or older, install a newer Python from <a href="https://www.python.org/downloads/" target="_blank">python.org/downloads</a>.<br><br>' +
+        '<strong>Mac users:</strong> After installing, <code>python3</code> may still point to the old system Python. Use the versioned command instead (e.g. <code>python3.14</code> or <code>python3.12</code> depending on what you installed):<br>' +
+        '<pre><code># Check which versions are available:\nls /usr/local/bin/python3.*\n\n# Use the newest one (example with 3.14):\npython3.14 --version</code></pre>' +
+        'Create a virtual environment using the new Python. Run each line one at a time:<br>' +
+        '<pre><code># Replace python3.14 with your installed version if different:\npython3.14 -m venv .venv</code></pre>' +
+        'Activate the virtual environment:<br>' +
+        '<pre><code># Mac / Linux:\nsource .venv/bin/activate\n\n# Windows:\n.venv\\Scripts\\activate</code></pre>' +
+        'Upgrade pip (required -- the version bundled with the venv is too old for this project):<br>' +
+        '<pre><code>pip3 install --upgrade pip</code></pre>' +
+        'Install the project:<br>' +
+        '<pre><code>pip3 install -e ".[dev]"</code></pre>' +
         '<strong>Step 3 -- Run the burst example.</strong><br>' +
-        '<pre><code>python examples/burst.py</code></pre>' +
+        '<pre><code>python3 examples/burst.py</code></pre>' +
         'You will see output showing service order and service counts. Look at the first 12 ticks -- notice that agents with more tasks (like <code>agent-7</code> with 8 tasks) tend to get served, but agents that have been waiting longer also get a turn. This is the load function balancing queue depth against wait time.<br><br>' +
         '<strong>Step 4 -- Change the scheduling strategy.</strong> Open <code>examples/burst.py</code> in any text editor. Find line 23:<br>' +
         '<pre><code>scheduler = AsyncLOCOScheduler(\n    agents, resource, optimize_for="balanced", seed=42,</code></pre>' +
@@ -59,7 +75,16 @@ window.COURSE_SECTIONS.push({
         'Confusing Qi with task count -- Qi is the SUM of task weights, not the number of tasks. Three opus tasks (weight=5) give Qi=15, not Qi=3',
         'Ignoring normalization -- both terms are divided by their max across agents, which means the absolute numbers do not matter, only relative differences'
       ],
-      exercise: 'Open a Python REPL. Create three agents with different task counts and weights. Hand-calculate L(i) for each at alpha=0.0, 0.25, and 0.5. Verify your results match <code>LOCOScheduler.compute_load_scores()</code>. Notice how alpha shifts the winner.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated, then start Python:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create three agents with different workloads.</strong> Type (or paste) the following into the REPL:<br>' +
+        '<pre><code>from loco import Agent, Task, LOCOScheduler\n\n# Agent A: 3 tasks, weight 2.0 each (Qi = 6), oldest waited 5 ticks\nagent_a = Agent(agent_id="A")\nagent_a.tasks = [Task(weight=2.0, age=5), Task(weight=2.0, age=3), Task(weight=2.0, age=1)]\n\n# Agent B: 1 task, weight 1.0 (Qi = 1), oldest waited 20 ticks\nagent_b = Agent(agent_id="B")\nagent_b.tasks = [Task(weight=1.0, age=20)]\n\n# Agent C: 2 tasks, weight 5.0 each (Qi = 10), oldest waited 2 ticks\nagent_c = Agent(agent_id="C")\nagent_c.tasks = [Task(weight=5.0, age=2), Task(weight=5.0, age=1)]</code></pre>' +
+        '<strong>Step 3 -- Hand-calculate L(i) before running the code.</strong> Write these down on paper or in a note:<br>' +
+        '<pre><code># The values:\n#   Agent A: Qi=6,  Dmax=5\n#   Agent B: Qi=1,  Dmax=20\n#   Agent C: Qi=10, Dmax=2\n#\n# Normalization: max_q=10, max_d=20\n#\n# --- alpha=0.0 (pure latency) ---\n# L(A) = 0.0*(6/10) + 1.0*(5/20)  = 0 + 0.25  = 0.25\n# L(B) = 0.0*(1/10) + 1.0*(20/20) = 0 + 1.0   = 1.0   &lt;-- winner\n# L(C) = 0.0*(10/10)+ 1.0*(2/20)  = 0 + 0.1   = 0.1\n#\n# --- alpha=0.25 (balanced) ---\n# L(A) = 0.25*(6/10) + 0.75*(5/20)  = 0.15 + 0.1875 = 0.3375\n# L(B) = 0.25*(1/10) + 0.75*(20/20) = 0.025 + 0.75  = 0.775  &lt;-- winner\n# L(C) = 0.25*(10/10)+ 0.75*(2/20)  = 0.25 + 0.075  = 0.325\n#\n# --- alpha=0.5 (throughput) ---\n# L(A) = 0.5*(6/10) + 0.5*(5/20)  = 0.3 + 0.125 = 0.425\n# L(B) = 0.5*(1/10) + 0.5*(20/20) = 0.05 + 0.5  = 0.55   &lt;-- winner\n# L(C) = 0.5*(10/10)+ 0.5*(2/20)  = 0.5 + 0.05  = 0.55   &lt;-- tied!\n#\n# B wins at alpha=0.0 and 0.25. At alpha=0.5, C catches up and ties B.\n# Notice how C (deep backlog) gains score as alpha increases.</code></pre>' +
+        '<strong>Step 4 -- Verify with the scheduler.</strong> Back in the REPL, create a scheduler for each alpha and compare:<br>' +
+        '<pre><code># alpha = 0.0\ns = LOCOScheduler([agent_a, agent_b, agent_c], alpha=0.0)\nprint("alpha=0.0:", s.compute_load_scores())\n\n# alpha = 0.25\ns = LOCOScheduler([agent_a, agent_b, agent_c], alpha=0.25)\nprint("alpha=0.25:", s.compute_load_scores())\n\n# alpha = 0.5\ns = LOCOScheduler([agent_a, agent_b, agent_c], alpha=0.5)\nprint("alpha=0.5:", s.compute_load_scores())</code></pre>' +
+        'The output should match your hand calculations exactly. Notice how Agent B (long wait, small queue) dominates at low alpha, but Agent C (short wait, huge backlog) climbs as alpha increases -- until they tie at alpha=0.5.<br><br>' +
+        '<strong>Step 5 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D to leave Python.'
     },
     {
       id: 'logical-ticks',
@@ -83,7 +108,20 @@ window.COURSE_SECTIONS.push({
         'Expecting ticks to fire at a constant rate -- they are driven by system load, not a timer',
         'Forgetting that ALL waiting tasks age on every tick, not just the tasks of the agent that was served -- this is how Dmax grows globally'
       ],
-      exercise: 'Create a SyncTestScheduler with 3 agents (5, 3, and 1 pending tasks). Run <code>step()</code> manually 5 times and after each step, print the age of every remaining task and each agent\'s Dmax. Observe how ages accumulate differently for tasks that wait longer.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create three agents with different task counts.</strong> Paste the following:<br>' +
+        '<pre><code>from loco.testing import SyncTestScheduler, mock_agent\n\n# Agent X: 5 tasks, Agent Y: 3 tasks, Agent Z: 1 task\nagents = [\n    mock_agent("X", pending_tasks=5),\n    mock_agent("Y", pending_tasks=3),\n    mock_agent("Z", pending_tasks=1),\n]\nscheduler = SyncTestScheduler(agents, alpha=0.25, seed=42)</code></pre>' +
+        '<strong>Step 3 -- Run step() and inspect ages after each tick.</strong> Paste this helper function, then run the loop:<br>' +
+        '<pre><code>def show_state(scheduler, tick_label):\n    print(f"\\n=== After {tick_label} ===")\n    for aid, agent in scheduler.agents.items():\n        if agent.tasks:\n            ages = [t.age for t in agent.tasks]\n            print(f"  {aid}: {len(agent.tasks)} tasks, ages={ages}, Dmax={agent.dmax}")\n        else:\n            print(f"  {aid}: no tasks remaining")\n\n# Show initial state (all ages start at 0)\nshow_state(scheduler, "initial state")\n\n# Run 5 steps, inspecting after each\nfor i in range(1, 6):\n    result = scheduler.step()\n    served = result.selected_agent.agent_id if result.selected_agent else "none"\n    print(f"\\nTick {i}: served {served}")\n    show_state(scheduler, f"tick {i}")</code></pre>' +
+        '<strong>Step 4 -- Read the output.</strong> Look for these patterns:<br>' +
+        '<ul>' +
+        '<li>All tasks start with age=0. After each tick, every <em>remaining</em> task across ALL agents has its age incremented by 1 -- not just the served agent\'s tasks.</li>' +
+        '<li>A task that has been waiting since tick 1 and is still in the queue at tick 5 will have age=4 (it aged once per tick for 4 ticks after the one where it was submitted).</li>' +
+        '<li>Agent Z has only 1 task. Once it gets served, it disappears from scoring entirely. But before that, its single task\'s age grows every tick -- making its Dmax climb and eventually winning a slot even though its backlog is tiny.</li>' +
+        '<li>Notice that Dmax is always the age of the oldest task, not the average. One old task is enough to boost the agent\'s score.</li>' +
+        '</ul>' +
+        '<strong>Step 5 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'alpha-tradeoff',
@@ -108,7 +146,29 @@ window.COURSE_SECTIONS.push({
         'Passing both alpha and optimize_for -- LOCOScheduler raises ValueError if you specify both. Pick one.',
         'Forgetting that the default is "balanced" (alpha=0.25) -- if you pass neither alpha nor optimize_for, you get 0.25'
       ],
-      exercise: 'Run <code>python examples/fairness.py</code> and observe the Jain\'s fairness index at different alpha values. Then modify the script to test alpha=0.75 and alpha=1.0. Watch how service counts become increasingly uneven, proving the starvation threshold.'
+      exercise: '<strong>Step 1 -- Run the fairness example.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated, then run:<br>' +
+        '<pre><code>python3 examples/fairness.py</code></pre>' +
+        'You will see a table with one row per alpha value (0.0, 0.25, 0.5, 0.75, 1.0). Each row shows the Jain\'s fairness index, minimum completions, starved agent count, and average wait times for high-load vs low-load agents.<br><br>' +
+        '<strong>Step 2 -- Read the output.</strong> Focus on these columns:<br>' +
+        '<ul>' +
+        '<li><strong>Jain\'s fairness index</strong> -- 1.0 means perfectly fair (all agents wait equally). Lower values mean some agents are favored over others.</li>' +
+        '<li><strong>starved</strong> -- how many agents completed zero tasks. At alpha=0.0 and 0.25 this should be 0. At alpha=0.75 or 1.0, you may see agents that never got served at all.</li>' +
+        '<li><strong>wait high / wait low</strong> -- average wait time for the high-load group (agents 0-4, more tasks arriving) vs the low-load group (agents 5-9, fewer tasks). Watch how the gap changes as alpha increases.</li>' +
+        '</ul>' +
+        '<strong>Step 3 -- Compare the safe zone vs the danger zone.</strong> You should see a pattern like this:<br>' +
+        '<ul>' +
+        '<li><strong>alpha=0.0:</strong> Fairness is near-perfect (close to 1.0). The scheduler only cares about wait time, so every agent gets a turn.</li>' +
+        '<li><strong>alpha=0.25:</strong> Still very fair (>= 0.98). This is the recommended default -- good balance of fairness and throughput.</li>' +
+        '<li><strong>alpha=0.5:</strong> Fairness starts dropping. High-load agents get more attention because their queue depth is weighted equally with wait time.</li>' +
+        '<li><strong>alpha=0.75:</strong> Danger zone. Low-load agents may starve -- they have small queues that can never compete with the high-load agents\' deep backlogs.</li>' +
+        '<li><strong>alpha=1.0:</strong> Pure queue-depth mode. Wait time is completely ignored. Some agents may get zero service.</li>' +
+        '</ul>' +
+        '<strong>Step 4 -- Experiment.</strong> Open <code>examples/fairness.py</code> in a text editor. Try changing these values and re-running:<br>' +
+        '<ul>' +
+        '<li>Change <code>N_TICKS = 500</code> (line 18) to <code>1000</code> -- does starvation get worse with more time?</li>' +
+        '<li>Change <code>N_AGENTS = 10</code> (line 17) to <code>20</code> and adjust <code>ARRIVAL_RATES</code> (line 19) to <code>[0.4] * 10 + [0.1] * 10</code> -- does more contention make the alpha threshold sharper?</li>' +
+        '</ul>' +
+        '<strong>Key takeaway:</strong> The safe operating range for alpha is [0.0, 0.5]. Anything above 0.5 risks starvation under sustained load. The default <code>optimize_for="balanced"</code> (alpha=0.25) is the right choice for most systems.'
     },
     {
       id: 'grant-time-scoring',
@@ -130,7 +190,25 @@ window.COURSE_SECTIONS.push({
         'Thinking scores are computed once at request time -- scores are recomputed at grant time, which means they incorporate all the waiting that happened since the request',
         'Forgetting that only WAITING agents are scored for granting -- agents that already hold the resource or have no tasks are excluded from the grant decision'
       ],
-      exercise: 'Write a test using SyncTestScheduler where Agent A arrives first with 1 task, and Agent B arrives later with 10 tasks. Run enough steps to show that B gets served before A (or more frequently than A) despite arriving later. Verify by checking the service_order in RunResult.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Set up a scenario where Agent A arrives first.</strong> We will create two agents but only give tasks to Agent A initially. Agent B will arrive later with a much bigger backlog:<br>' +
+        '<pre><code>from loco.testing import SyncTestScheduler, mock_agent\nfrom loco.task import Task\n\n# Both agents start empty\nagent_a = mock_agent("A", pending_tasks=0)\nagent_b = mock_agent("B", pending_tasks=0)\n\nscheduler = SyncTestScheduler([agent_a, agent_b], alpha=0.25, seed=42)</code></pre>' +
+        '<strong>Step 3 -- Tick 1: Agent A arrives with 1 task.</strong> We use the <code>arrivals</code> parameter to submit tasks at a specific tick:<br>' +
+        '<pre><code># Agent A arrives first with 1 task\nresult = scheduler.step(arrivals={"A": [Task(weight=1.0)]})\nprint(f"Tick 1: served {result.selected_agent.agent_id if result.selected_agent else \'none\'}")\nprint(f"  A tasks remaining: {len(scheduler.get_agent(\'A\').tasks)}")\nprint(f"  B tasks remaining: {len(scheduler.get_agent(\'B\').tasks)}")</code></pre>' +
+        'A is the only agent with work, so A gets served. Makes sense -- no contention yet.<br><br>' +
+        '<strong>Step 4 -- Tick 2: Agent B arrives later with 10 tasks.</strong> Now B shows up with a much heavier workload:<br>' +
+        '<pre><code># Agent B arrives later with 10 tasks\nresult = scheduler.step(arrivals={"B": [Task(weight=1.0) for _ in range(10)]})\nprint(f"\\nTick 2: served {result.selected_agent.agent_id}")\nprint(f"  Scores: {result.scores}")</code></pre>' +
+        'Even though A arrived first, B should win this tick because B has a much deeper backlog (Qi=10 vs Qi=0). The scores are computed <em>now</em>, not when the agents first appeared.<br><br>' +
+        '<strong>Step 5 -- Run the remaining ticks and check service order.</strong> Let the scheduler drain all tasks and see who got served in what order:<br>' +
+        '<pre><code># Give A one more task so it stays in the game\nscheduler.add_tasks("A", [Task(weight=1.0)])\n\n# Run until all tasks are done\nservice_order = []\nwhile scheduler.total_tasks_remaining() > 0:\n    result = scheduler.step()\n    if result.selected_agent:\n        service_order.append(result.selected_agent.agent_id)\n\nprint(f"\\nFull service order: {service_order}")\nprint(f"A served: {service_order.count(\'A\')} times")\nprint(f"B served: {service_order.count(\'B\')} times")</code></pre>' +
+        '<strong>Step 6 -- Read the results.</strong> Look for these patterns:<br>' +
+        '<ul>' +
+        '<li>B gets served much more frequently than A, even though A arrived first. In a FIFO system, A would always go first -- LOCO does not work that way.</li>' +
+        '<li>B\'s 10 tasks give it a higher Qi, so it dominates the queue depth term. But A\'s tasks age over time, so A still gets a turn eventually -- it is not completely starved.</li>' +
+        '<li>This is grant-time scoring in action: every time a slot opens, ALL agents are re-scored using their <em>current</em> Qi and Dmax. Arrival order is irrelevant.</li>' +
+        '</ul>' +
+        '<strong>Step 7 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     }
   ]
 });
