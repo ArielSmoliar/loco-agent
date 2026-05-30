@@ -23,7 +23,18 @@ window.COURSE_SECTIONS.push({
         'Assuming you need all the adapters installed -- the core scheduler has zero dependencies; only install adapters for frameworks you actually use',
         'Treating it as a rate limiter -- LOCO is a fairness-aware scheduler, not just a concurrency limiter. A semaphore limits throughput; LOCO decides priority'
       ],
-      exercise: 'Clone the loco-agent repo, install it with <code>pip install -e ".[dev]"</code>, and run <code>python examples/burst.py</code>. Read the output and observe which agents get served first and why. Then change the <code>optimize_for</code> parameter and see how behavior changes.'
+      exercise: '<strong>Step 1 -- Get the code.</strong> Open a terminal and clone the repository:<br>' +
+        '<pre><code>git clone https://github.com/ArielSmoliar/loco-agent.git\ncd loco-agent</code></pre>' +
+        '<strong>Step 2 -- Install dependencies.</strong> Create a virtual environment (recommended) and install in development mode:<br>' +
+        '<pre><code>python -m venv .venv\nsource .venv/bin/activate   # On Windows: .venv\\Scripts\\activate\npip install -e ".[dev]"</code></pre>' +
+        '<strong>Step 3 -- Run the burst example.</strong><br>' +
+        '<pre><code>python examples/burst.py</code></pre>' +
+        'You will see output showing service order and service counts. Look at the first 12 ticks -- notice that agents with more tasks (like <code>agent-7</code> with 8 tasks) tend to get served, but agents that have been waiting longer also get a turn. This is the load function balancing queue depth against wait time.<br><br>' +
+        '<strong>Step 4 -- Change the scheduling strategy.</strong> Open <code>examples/burst.py</code> in any text editor. Find line 23:<br>' +
+        '<pre><code>scheduler = AsyncLOCOScheduler(\n    agents, resource, optimize_for="balanced", seed=42,</code></pre>' +
+        'Change <code>"balanced"</code> to <code>"latency"</code> and run the script again. Notice that service order becomes more round-robin -- the scheduler now prioritizes whichever agent has waited the longest, regardless of backlog size.<br><br>' +
+        '<strong>Step 5 -- Try the opposite extreme.</strong> Change <code>optimize_for</code> to <code>"throughput"</code> and run again. Now agents with deeper backlogs (more tasks) dominate the service order -- the scheduler prioritizes draining large queues over fairness.<br><br>' +
+        '<strong>What to compare:</strong> Look at the "Service order (first 12)" section across all three runs. With <code>"latency"</code> you will see more variety in agent names (fair turns). With <code>"throughput"</code> you will see heavy agents repeated more often (drain big queues first). <code>"balanced"</code> sits in between.'
     },
     {
       id: 'load-function',
