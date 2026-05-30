@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="https://arielsmoliar.github.io/loco-agent/">Docs</a> &middot;
+  <a href="https://arielsmoliar.github.io/loco-agent/learning-guide/">Interactive Learning Guide</a> &middot;
   <a href="#quick-start">Quick Start</a> &middot;
   <a href="https://pypi.org/project/loco-agent/">PyPI</a> &middot;
   <a href="#framework-adapters">Adapters</a> &middot;
@@ -511,6 +512,8 @@ graph TD
 See [ROADMAP.md](ROADMAP.md) for the full plan.
 
 ## Contributing
+
+New to the codebase? Start with the **[Interactive Learning Guide](https://arielsmoliar.github.io/loco-agent/learning-guide/)** -- 38 topics covering every concept from the load function to writing your first adapter, with real code examples, mental models, and hands-on exercises.
 
 ```bash
 git clone https://github.com/ArielSmoliar/loco-agent.git

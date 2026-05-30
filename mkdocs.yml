@@ -61,3 +61,4 @@ nav:
     - AWS Bedrock: adapters/aws-bedrock.md
     - AutoGen: adapters/autogen.md
   - Demos: demos.md
+  - Interactive Learning Guide: https://arielsmoliar.github.io/loco-agent/learning-guide/

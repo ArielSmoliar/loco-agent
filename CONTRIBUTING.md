@@ -1,5 +1,7 @@
 # Contributing to LOCO-Agent
 
+> **New here?** Start with the [Interactive Learning Guide](https://arielsmoliar.github.io/loco-agent/learning-guide/) -- 38 topics covering the load function, core entities, scheduler layers, policies, adapters, testing, and more. Each topic includes real code, mental models, and hands-on exercises.
+
 ## Quick Start (< 5 minutes)
 
 ```bash
