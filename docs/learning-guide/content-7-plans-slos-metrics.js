@@ -25,7 +25,23 @@ window.COURSE_SECTIONS.push({
         'Creating circular dependencies -- Step A depends on B, B depends on A. validate() catches this with topological sort',
         'Assuming steps run sequentially -- ready_steps() may return MULTIPLE steps that can run in parallel. Only steps with unsatisfied dependencies must wait'
       ],
-      exercise: 'Create a Plan with 5 steps forming a diamond pattern: A has no deps, B and C depend on A, D depends on B and C, E depends on D. Call <code>validate()</code>, then <code>topological_sort()</code>, then simulate execution by calling <code>ready_steps()</code> in a loop. Verify B and C are returned together as parallelizable.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create a diamond-shaped plan.</strong><br>' +
+        '<pre><code>from loco import Plan, Step\n\nplan = Plan(plan_id="diamond", steps=[\n    Step(step_id="A", agent="reader"),                              # no deps\n    Step(step_id="B", agent="analyst", depends_on=["A"]),           # depends on A\n    Step(step_id="C", agent="analyst", depends_on=["A"]),           # depends on A\n    Step(step_id="D", agent="writer",  depends_on=["B", "C"]),     # depends on B and C\n    Step(step_id="E", agent="reviewer", depends_on=["D"]),         # depends on D\n])\nprint(f"Plan has {len(plan)} steps")</code></pre>' +
+        '<strong>Step 3 -- Validate the plan.</strong><br>' +
+        '<pre><code>plan.validate()\nprint("Validation passed -- no cycles, no missing deps, no duplicates")</code></pre>' +
+        'If validate() returns without raising, the plan is a valid DAG.<br><br>' +
+        '<strong>Step 4 -- Check the topological sort.</strong><br>' +
+        '<pre><code>order = plan.topological_sort()\nprint(f"Valid execution order: {order}")</code></pre>' +
+        'A must come first. B and C can appear in either order (both only depend on A). D must follow both B and C. E must be last.<br><br>' +
+        '<strong>Step 5 -- Simulate execution using ready_steps().</strong><br>' +
+        '<pre><code>completed = set()\nround_num = 1\n\nwhile not plan.is_complete(completed):\n    ready = plan.ready_steps(completed)\n    step_ids = [s.step_id for s in ready]\n    print(f"Round {round_num}: can run {step_ids} in parallel")\n    completed.update(step_ids)\n    round_num += 1\n\nprint(f"\\nAll steps completed in {round_num - 1} rounds")</code></pre>' +
+        'You should see 4 rounds: Round 1 runs [A], Round 2 runs [B, C] in parallel, Round 3 runs [D], Round 4 runs [E]. The diamond shape means B and C are parallelizable -- they both depend only on A, not on each other.<br><br>' +
+        '<strong>Step 6 -- Try creating an invalid plan with a cycle.</strong><br>' +
+        '<pre><code>cyclic = Plan(steps=[\n    Step(step_id="X", agent="a", depends_on=["Z"]),\n    Step(step_id="Y", agent="a", depends_on=["X"]),\n    Step(step_id="Z", agent="a", depends_on=["Y"]),\n])\n\ntry:\n    cyclic.validate()\nexcept ValueError as e:\n    print(f"Cycle detected: {e}")</code></pre>' +
+        'validate() catches circular dependencies using topological sort (Kahn\\\'s algorithm). X depends on Z, Z depends on Y, Y depends on X -- a cycle that would hang forever without detection.<br><br>' +
+        '<strong>Step 7 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'slo-error-budgets',
@@ -48,7 +64,20 @@ window.COURSE_SECTIONS.push({
         'Forgetting the rolling window -- violation_rate is computed over the last N observations, not all-time. Old violations eventually slide out',
         'Setting target_wait in seconds instead of logical ticks -- SLOBudget uses task.age, which is measured in logical ticks, not wall-clock time'
       ],
-      exercise: 'Create an SLOBudget with target_wait=5 and window=20. Record 15 tasks with age below 5 (healthy) then 10 tasks with age above 5 (violations). Check the state transitions. Then record 20 more healthy tasks and verify the state recovers back to HEALTHY as violations exit the window.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create an SLOBudget.</strong><br>' +
+        '<pre><code>from loco import SLOBudget, SLOState, Task\n\nslo = SLOBudget(\n    target_wait=5,   # tasks waiting > 5 ticks are violations\n    window=20,       # rolling window of 20 observations\n    warn=0.75,       # WARNING at 75% violation rate\n    critical=0.90,   # CRITICAL at 90%\n)\nprint(f"Initial state: {slo.state}")</code></pre>' +
+        '<strong>Step 3 -- Record healthy observations (age below target).</strong><br>' +
+        '<pre><code>print("Recording 15 healthy tasks (age < 5)...")\nfor i in range(15):\n    task = Task(weight=1.0, age=i % 5)  # ages 0,1,2,3,4 (all under 5)\n    state = slo.record("agent-1", task)\n\nprint(f"State: {slo.state}")\nprint(f"Violation rate: {slo.violation_rate:.2f}")\nprint(f"Budget remaining: {slo.budget_remaining:.2f}")\nprint(f"Total observations: {slo.total_observations}")</code></pre>' +
+        'State should be HEALTHY with a 0% violation rate. All 15 tasks waited less than the target.<br><br>' +
+        '<strong>Step 4 -- Introduce violations (age above target).</strong><br>' +
+        '<pre><code>print("\\nRecording 10 violations (age > 5)...")\nfor i in range(10):\n    task = Task(weight=1.0, age=10 + i)  # ages 10-19 (all over 5)\n    state = slo.record("agent-1", task)\n    if state != SLOState.HEALTHY:\n        print(f"  After {i+1} violations: state={state}, "\n              f"violation_rate={slo.violation_rate:.2f}")</code></pre>' +
+        'Watch the state transitions as violations accumulate. The window holds 20 observations, so after enough violations push out healthy ones, the state degrades through WARNING to CRITICAL or EXHAUSTED.<br><br>' +
+        '<strong>Step 5 -- Recover by recording healthy observations.</strong><br>' +
+        '<pre><code>print(f"\\nCurrent state: {slo.state}")\nprint("Recording 20 healthy tasks to recover...")\nfor i in range(20):\n    task = Task(weight=1.0, age=2)  # well under target\n    state = slo.record("agent-1", task)\n\nprint(f"Final state: {slo.state}")\nprint(f"Violation rate: {slo.violation_rate:.2f}")\nprint(f"Budget remaining: {slo.budget_remaining:.2f}")</code></pre>' +
+        'The rolling window means old violations eventually slide out. After 20 healthy observations (filling the window), the state should recover to HEALTHY. The SLO is observability only -- it monitors, it does not change scheduling decisions.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'adaptive-alpha',
@@ -74,7 +103,19 @@ window.COURSE_SECTIONS.push({
         'Expecting instant corrections -- the tuner nudges by step_size (default 0.01) per update. Large corrections take multiple ticks, which provides stability',
         'Using auto_tune with a manually set alpha -- while not an error, understand that the tuner will override your alpha value based on observed conditions'
       ],
-      exercise: 'Enable auto_tune=True on an AsyncLOCOScheduler. Run a scenario where one agent gets much more load than others. After the run, inspect <code>tuner._adjustments</code> to see when and why alpha was adjusted. Verify that alpha moved toward lower values (fairness) when wait times diverged.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create a scheduler with auto_tune enabled.</strong><br>' +
+        '<pre><code>import asyncio\nfrom loco import Agent, AsyncLOCOScheduler, SharedResource, Task\n\nasync def test_adaptive():\n    # One heavily loaded agent, two lightly loaded\n    agents = [\n        Agent(agent_id="heavy"),\n        Agent(agent_id="light-1"),\n        Agent(agent_id="light-2"),\n    ]\n    resource = SharedResource(name="api", capacity=1)\n    scheduler = AsyncLOCOScheduler(\n        agents, resource,\n        optimize_for="balanced",\n        auto_tune=True,  # enables AdaptiveAlphaTuner\n    )\n\n    print(f"Initial alpha: {scheduler._scorer.alpha}")\n\n    # Submit uneven workloads\n    for _ in range(20):\n        await scheduler.submit_task("heavy", Task(weight=2.0))\n    for _ in range(3):\n        await scheduler.submit_task("light-1", Task(weight=1.0))\n    for _ in range(3):\n        await scheduler.submit_task("light-2", Task(weight=1.0))\n\n    # Process all tasks\n    for _ in range(26):\n        async with scheduler.acquire("heavy"):\n            scheduler.get_agent("heavy").serve_oldest_task()\n\n    final_alpha = scheduler._scorer.alpha\n    print(f"Final alpha: {final_alpha}")\n\n    # Check adjustment history\n    if scheduler._tuner:\n        adjustments = scheduler._tuner.adjustments\n        print(f"\\nTotal adjustments: {len(adjustments)}")\n        for tick, alpha, reason in adjustments[:5]:\n            print(f"  Tick {tick}: alpha={alpha:.3f} ({reason})")\n\nasyncio.run(test_adaptive())</code></pre>' +
+        '<strong>Step 3 -- Read the output.</strong> Look for these patterns:<br>' +
+        '<ul>' +
+        '<li>The initial alpha is 0.25 (balanced preset).</li>' +
+        '<li>As the heavy agent monopolizes the resource, the light agents\\\' wait times diverge (high CV). The tuner should nudge alpha DOWN toward fairness.</li>' +
+        '<li>Each adjustment is small (step_size=0.01 by default), providing stability.</li>' +
+        '<li>Alpha never goes below 0.0 or above 0.5 -- these are the safety bounds.</li>' +
+        '</ul>' +
+        '<strong>Step 4 -- Understand the safety bounds.</strong> The tuner clamps alpha to [0.0, 0.5] because Scenario 2 (fairness.py) proved that alpha >= 0.75 causes starvation. The tuner will never push alpha into the danger zone, even under extreme conditions.<br><br>' +
+        '<strong>Step 5 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'scheduler-metrics',
@@ -100,7 +141,19 @@ window.COURSE_SECTIONS.push({
         'Ignoring session_id -- without it, you cannot attribute costs to individual user requests. Set session_id on Tasks for per-request cost tracking',
         'Not calling record_actual_tokens() in custom adapters -- without actual token data, the EMA weight estimates stay at their initial static values'
       ],
-      exercise: 'Create an AsyncLOCOScheduler, submit and complete 10 tasks with different weights and session_ids. After each task, print <code>metrics.cost_by_agent()</code>, <code>metrics.wait_time_by_agent()</code>, and <code>metrics.cost_by_session()</code>. Observe how cumulative costs build up over time.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create a scheduler and submit tasks with session IDs.</strong><br>' +
+        '<pre><code>import asyncio\nfrom loco import Agent, AsyncLOCOScheduler, SharedResource, Task\n\nasync def test_metrics():\n    agents = [Agent(agent_id="analyst"), Agent(agent_id="chatbot")]\n    resource = SharedResource(name="api", capacity=2)\n    scheduler = AsyncLOCOScheduler(agents, resource, optimize_for="balanced")\n    metrics = scheduler.metrics\n\n    # Submit tasks with session IDs for cost attribution\n    tasks = [\n        ("analyst", Task(weight=5.0, session_id="req-001")),\n        ("analyst", Task(weight=2.0, session_id="req-001")),\n        ("chatbot", Task(weight=1.0, session_id="req-002")),\n        ("analyst", Task(weight=5.0, session_id="req-003")),\n        ("chatbot", Task(weight=1.0, session_id="req-002")),\n    ]\n\n    for agent_id, task in tasks:\n        await scheduler.submit_task(agent_id, task)\n        async with scheduler.acquire(agent_id):\n            scheduler.get_agent(agent_id).serve_oldest_task()\n\n    # Check all metric dimensions\n    print("Cost by agent:  ", metrics.cost_by_agent())\n    print("Total cost:     ", metrics.total_cost())\n    print("Cost by session:", metrics.cost_by_session())\n    print("Wait times:     ", metrics.wait_time_by_agent())\n    print("Completed:      ", metrics.completed_by_agent())\n    print("Utilization:    ", metrics.resource_utilization())\n\nasyncio.run(test_metrics())</code></pre>' +
+        '<strong>Step 3 -- Read the output.</strong> Look for:<br>' +
+        '<ul>' +
+        '<li><strong>Cost by agent:</strong> analyst should show 12.0 (5+2+5), chatbot should show 2.0 (1+1).</li>' +
+        '<li><strong>Cost by session:</strong> req-001=7.0, req-002=2.0, req-003=5.0. Session IDs let you attribute costs to individual user requests.</li>' +
+        '<li><strong>Completed:</strong> analyst=3, chatbot=2 -- matches the number of tasks submitted.</li>' +
+        '<li><strong>Utilization:</strong> 0.0 after all tasks finish (no slots held).</li>' +
+        '</ul>' +
+        '<strong>Step 4 -- Understand what metrics are NOT.</strong> Metrics are observability -- they show what happened. They do not enforce anything. For enforcement, use BudgetPolicy (cost limits) or SLOBudget (wait time monitoring). Metrics report; policies act.<br><br>' +
+        '<strong>Step 5 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'jains-fairness',
@@ -123,7 +176,24 @@ window.COURSE_SECTIONS.push({
         'Ignoring zero values -- the function filters out zero and negative values before computing. An agent with zero wait time (never waited) is excluded',
         'Using Jain\'s fairness as a scheduling signal -- it is a validation metric for AFTER a run, not a signal to act on DURING scheduling. Use the AdaptiveAlphaTuner\'s CV for live fairness adjustment'
       ],
-      exercise: 'Compute Jain\'s fairness by hand for these wait times: [5, 5, 5, 5] (should be 1.0), [1, 1, 1, 100] (should be much lower), and [10, 20, 30] (somewhere in between). Then verify your answers against <code>jains_fairness()</code> from <code>loco.metrics</code>.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Hand-calculate Jain\\\'s fairness for three cases.</strong> Write down your answers before running the code:<br>' +
+        '<pre><code># The formula: J = (sum(xi))^2 / (n * sum(xi^2))\n#\n# Case 1: [5, 5, 5, 5] -- perfectly equal\n#   sum = 20, sum_sq = 100, n = 4\n#   J = 400 / (4 * 100) = 400 / 400 = 1.0\n#\n# Case 2: [1, 1, 1, 100] -- one outlier dominates\n#   sum = 103, sum_sq = 1+1+1+10000 = 10003, n = 4\n#   J = 10609 / (4 * 10003) = 10609 / 40012 = 0.2652\n#\n# Case 3: [10, 20, 30] -- moderate spread\n#   sum = 60, sum_sq = 100+400+900 = 1400, n = 3\n#   J = 3600 / (3 * 1400) = 3600 / 4200 = 0.857</code></pre>' +
+        '<strong>Step 3 -- Verify against the real function.</strong><br>' +
+        '<pre><code>from loco import jains_fairness\n\ncases = [\n    ([5, 5, 5, 5],      "perfectly equal"),\n    ([1, 1, 1, 100],    "one outlier"),\n    ([10, 20, 30],      "moderate spread"),\n    ([0, 0, 0, 5],      "only one active (zeros filtered)"),\n    ([],                 "empty list"),\n]\n\nfor values, label in cases:\n    result = jains_fairness(values)\n    print(f"  {str(values):>20} ({label:>25}): {result:.4f}")</code></pre>' +
+        '<strong>Step 4 -- Read the results.</strong> Look for:<br>' +
+        '<ul>' +
+        '<li>[5,5,5,5] = 1.0: all agents waited equally. Perfect fairness.</li>' +
+        '<li>[1,1,1,100] ~ 0.265: one agent waited 100x longer. Severely unfair.</li>' +
+        '<li>[10,20,30] ~ 0.857: moderate spread. Acceptable for many systems.</li>' +
+        '<li>[0,0,0,5]: zeros are filtered out, leaving [5]. A single value always gives 1.0.</li>' +
+        '<li>[]: empty list returns 1.0 by convention.</li>' +
+        '</ul>' +
+        '<strong>Step 5 -- See Jain\\\'s fairness in a scheduling context.</strong><br>' +
+        '<pre><code>from loco.testing import SyncTestScheduler, mock_agent\n\nagents = [mock_agent(f"a-{i}", pending_tasks=10) for i in range(5)]\nscheduler = SyncTestScheduler(agents, alpha=0.25, seed=42)\nscheduler.run_all()\n\nfairness = scheduler.jains_fairness()\nprint(f"\\nScheduling fairness at alpha=0.25: {fairness:.4f}")\nassert fairness >= 0.95, f"Fairness too low: {fairness}"</code></pre>' +
+        'At alpha=0.25 (balanced), Jain\\\'s index should be >= 0.95 for equal workloads. This is the scheduling guarantee that LOCO provides.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     }
   ]
 });

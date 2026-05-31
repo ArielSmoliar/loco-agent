@@ -60,7 +60,21 @@ window.COURSE_SECTIONS.push({
         'Creating mock_resource objects but never passing them to the scheduler, so resource contention is never actually tested.',
         'Setting task_weight to 0, which can cause division-by-zero or undefined behavior in scoring calculations.'
       ],
-      exercise: 'Create three mock agents: "api" with 5 tasks at weight 1.0, "worker" with 10 tasks at weight 0.5, and "batch" with 2 tasks at weight 3.0. Also create a mock resource called "gpu" with capacity 2. Write assertions to verify the task IDs of the first and last task on each agent (e.g., "api-t0" through "api-t4").'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create mock agents with different configurations.</strong><br>' +
+        '<pre><code>from loco.testing import mock_agent, mock_resource\n\n# Three agents with different task counts and weights\napi = mock_agent("api", pending_tasks=5, task_weight=1.0)\nworker = mock_agent("worker", pending_tasks=10, task_weight=2.0)\nbatch = mock_agent("batch", pending_tasks=2, task_weight=5.0)\n\nprint(f"api:    {len(api.tasks)} tasks, Qi={api.queue_depth_weighted}")\nprint(f"worker: {len(worker.tasks)} tasks, Qi={worker.queue_depth_weighted}")\nprint(f"batch:  {len(batch.tasks)} tasks, Qi={batch.queue_depth_weighted}")</code></pre>' +
+        'Notice Qi is the sum of weights, not the count. Worker has 10 tasks but Qi=20 (10 * 2.0). Batch has only 2 tasks but Qi=10 (2 * 5.0).<br><br>' +
+        '<strong>Step 3 -- Verify the predictable task ID naming pattern.</strong><br>' +
+        '<pre><code># Task IDs follow the pattern "agent_id-tN"\nprint(f"\\napi task IDs: {[t.task_id for t in api.tasks]}")\nprint(f"First: {api.tasks[0].task_id}")  # "api-t0"\nprint(f"Last:  {api.tasks[-1].task_id}") # "api-t4"\n\nassert api.tasks[0].task_id == "api-t0"\nassert api.tasks[-1].task_id == "api-t4"\nassert worker.tasks[0].task_id == "worker-t0"\nassert worker.tasks[-1].task_id == "worker-t9"\nassert batch.tasks[0].task_id == "batch-t0"\nassert batch.tasks[-1].task_id == "batch-t1"\nprint("\\nAll task ID assertions passed!")</code></pre>' +
+        'The naming convention makes it easy to trace which tasks belong to which agent when debugging test failures.<br><br>' +
+        '<strong>Step 4 -- Create a mock resource.</strong><br>' +
+        '<pre><code>gpu = mock_resource("gpu", capacity=2)\nprint(f"\\nResource: name={gpu.name}, capacity={gpu.capacity}")\nprint(f"Available slots: {gpu.available_slots}")\nprint(f"Utilization: {gpu.utilization}")</code></pre>' +
+        'mock_resource creates a SharedResource for testing. Capacity=2 means two agents can hold it simultaneously.<br><br>' +
+        '<strong>Step 5 -- Combine them into a scheduler.</strong><br>' +
+        '<pre><code>from loco.testing import SyncTestScheduler\n\nscheduler = SyncTestScheduler([api, worker, batch], alpha=0.25, seed=42)\nresult = scheduler.step()\nprint(f"\\nFirst tick served: {result.selected_agent.agent_id}")\nprint(f"Scores: {result.scores}")</code></pre>' +
+        'The mock factories are building blocks. Every LOCO test starts by creating agents and optionally a resource, then feeding them to a scheduler.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'sync-test-scheduler',
@@ -148,7 +162,20 @@ window.COURSE_SECTIONS.push({
         'Confusing service_counts (how many tasks each agent had served) with pending task counts (how many tasks remain in the queue).',
         'Calling step() after run_all() has already drained all queues -- there are no tasks left to schedule.'
       ],
-      exercise: 'Create a SyncTestScheduler with three agents: "fast" (3 tasks), "medium" (6 tasks), and "slow" (9 tasks). Use alpha=0.5 and seed=42. Call step() three times and record which agent is selected each time. Then create a fresh scheduler with the same agents and use run_all(). Verify that service_counts matches the total number of tasks (3 + 6 + 9 = 18) and that total_ticks equals 18.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create three agents and step through three ticks.</strong><br>' +
+        '<pre><code>from loco.testing import SyncTestScheduler, mock_agent\n\nagents = [\n    mock_agent("fast", pending_tasks=3),\n    mock_agent("medium", pending_tasks=6),\n    mock_agent("slow", pending_tasks=9),\n]\nscheduler = SyncTestScheduler(agents, alpha=0.5, seed=42)\n\nfor i in range(3):\n    result = scheduler.step()\n    aid = result.selected_agent.agent_id\n    print(f"Tick {i+1}: served {aid}  scores={result.scores}")</code></pre>' +
+        'With alpha=0.5 (throughput), "slow" (deepest backlog, Qi=9) should dominate the first few ticks. Watch how scores shift as queues drain.<br><br>' +
+        '<strong>Step 3 -- Use run_all() for a complete execution.</strong> Create a fresh scheduler (previous one has already consumed some tasks):<br>' +
+        '<pre><code>agents2 = [\n    mock_agent("fast", pending_tasks=3),\n    mock_agent("medium", pending_tasks=6),\n    mock_agent("slow", pending_tasks=9),\n]\nscheduler2 = SyncTestScheduler(agents2, alpha=0.5, seed=42)\nresult = scheduler2.run_all()\n\nprint(f"Total ticks: {result.total_ticks}")\nprint(f"Service counts: {result.service_counts}")\nprint(f"Service order (first 10): {result.service_order[:10]}")</code></pre>' +
+        '<strong>Step 4 -- Verify the results.</strong><br>' +
+        '<pre><code># Every task must be served exactly once\nassert result.total_ticks == 18, f"Expected 18, got {result.total_ticks}"\nassert result.service_counts["fast"] == 3\nassert result.service_counts["medium"] == 6\nassert result.service_counts["slow"] == 9\nassert sum(result.service_counts.values()) == 18\nprint("All assertions passed!")\n\n# Check fairness\nfairness = scheduler2.jains_fairness()\nprint(f"Jain\\\'s fairness: {fairness:.4f}")</code></pre>' +
+        'service_counts must match the original task assignments exactly. No tasks lost, no tasks duplicated. total_ticks equals the sum of all tasks (3+6+9=18).<br><br>' +
+        '<strong>Step 5 -- Inspect individual steps from the RunResult.</strong><br>' +
+        '<pre><code># RunResult stores every StepResult\nprint(f"\\nSteps recorded: {len(result.steps)}")\nfor step in result.steps[:5]:\n    aid = step.selected_agent.agent_id\n    print(f"  {aid}: task_age={step.served_task.age}")</code></pre>' +
+        'The <code>steps</code> list gives you tick-by-tick access to every scheduling decision, which is invaluable for debugging unexpected behavior.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'writing-effective-tests',
@@ -267,7 +294,19 @@ window.COURSE_SECTIONS.push({
         'Using alpha=0.25 when you want an unambiguous outcome -- the balanced mode creates nuanced scores that may not have a clear winner without careful calculation.',
         'Not testing edge cases like empty queues or single agents, which are exactly the scenarios that surface division-by-zero and off-by-one bugs.'
       ],
-      exercise: 'Write a test that hand-calculates scores for three agents: Agent A (Qi=6, Dmax=5), Agent B (Qi=3, Dmax=15), Agent C (Qi=1, Dmax=30). Use alpha=0.25. Show the full calculation in comments, predict which agent wins, then verify with SyncTestScheduler. Hint: calculate Qmax and Dmax_global first, then apply the formula L(i) = alpha*(Qi/Qmax) + (1-alpha)*(Dmax_i/Dmax_global) for each agent.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Hand-calculate the expected scores.</strong> Write this down before running any code:<br>' +
+        '<pre><code># Given:\n#   Agent A: Qi=6, Dmax=5\n#   Agent B: Qi=3, Dmax=15\n#   Agent C: Qi=1, Dmax=30\n#   alpha=0.25\n#\n# Step 1: Find normalization values\n#   Qmax = max(6, 3, 1) = 6\n#   Dmax_global = max(5, 15, 30) = 30\n#\n# Step 2: Apply L(i) = alpha*(Qi/Qmax) + (1-alpha)*(Dmax_i/Dmax_global)\n#   L(A) = 0.25*(6/6) + 0.75*(5/30)  = 0.25  + 0.125 = 0.375\n#   L(B) = 0.25*(3/6) + 0.75*(15/30) = 0.125 + 0.375 = 0.500\n#   L(C) = 0.25*(1/6) + 0.75*(30/30) = 0.042 + 0.750 = 0.792\n#\n# Winner: C (score 0.792) -- despite having the smallest queue,\n# its Dmax=30 dominates at alpha=0.25 (75% weight on wait time)</code></pre>' +
+        '<strong>Step 3 -- Build the scenario with real agents.</strong><br>' +
+        '<pre><code>from loco.testing import SyncTestScheduler, mock_agent\nfrom loco import Agent, Task\n\n# Agent A: 6 tasks (weight 1.0 each -> Qi=6), oldest waited 5 ticks\nagent_a = Agent(agent_id="A")\nagent_a.tasks = [Task(weight=1.0, age=5-i) for i in range(6)]\n\n# Agent B: 3 tasks (weight 1.0 each -> Qi=3), oldest waited 15 ticks\nagent_b = Agent(agent_id="B")\nagent_b.tasks = [Task(weight=1.0, age=15-i*5) for i in range(3)]\n\n# Agent C: 1 task (weight 1.0 -> Qi=1), waited 30 ticks\nagent_c = Agent(agent_id="C")\nagent_c.tasks = [Task(weight=1.0, age=30)]\n\n# Verify our setup\nfor agent in [agent_a, agent_b, agent_c]:\n    print(f"{agent.agent_id}: Qi={agent.queue_depth_weighted}, Dmax={agent.dmax}")</code></pre>' +
+        '<strong>Step 4 -- Run one step and compare against hand calculation.</strong><br>' +
+        '<pre><code>scheduler = SyncTestScheduler([agent_a, agent_b, agent_c], alpha=0.25, seed=42)\nresult = scheduler.step()\n\nprint(f"\\nScores: {result.scores}")\nprint(f"Winner: {result.selected_agent.agent_id}")\n\n# Verify against hand calculations\nassert abs(result.scores["A"] - 0.375) < 0.01, f"A score wrong: {result.scores[\\\"A\\\"]}"\nassert abs(result.scores["B"] - 0.500) < 0.01, f"B score wrong: {result.scores[\\\"B\\\"]}"\nassert result.selected_agent.agent_id == "C", "C should win"\nprint("\\nAll assertions match hand calculations!")</code></pre>' +
+        'The real scores should match your hand calculations. If they do not, re-check your Qi and Dmax values -- a common mistake is confusing Qi (sum of weights) with task count.<br><br>' +
+        '<strong>Step 5 -- Write this as a proper pytest test.</strong> Save this pattern for your own tests:<br>' +
+        '<pre><code>def test_wait_time_beats_backlog_at_alpha_025():\n    """Agent C (Dmax=30, Qi=1) should beat Agent A (Dmax=5, Qi=6)\n    at alpha=0.25 because wait time has 75% weight.\n    Hand-calc: L(C)=0.792 > L(A)=0.375"""\n    a = Agent(agent_id="A")\n    a.tasks = [Task(weight=1.0, age=5-i) for i in range(6)]\n    c = Agent(agent_id="C")\n    c.tasks = [Task(weight=1.0, age=30)]\n    scheduler = SyncTestScheduler([a, c], alpha=0.25, seed=42)\n    result = scheduler.step()\n    assert result.selected_agent.agent_id == "C"\n\ntest_wait_time_beats_backlog_at_alpha_025()\nprint("Test passed!")</code></pre>' +
+        'Including the hand calculation as a docstring makes test failures easy to debug.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'four-validated-scenarios',
@@ -420,7 +459,23 @@ window.COURSE_SECTIONS.push({
         'Testing only the burst scenario (immediate prioritization) and assuming fairness will follow -- burst and fairness test fundamentally different properties.',
         'Ignoring the mdash_security scenario when your system has no security labels -- the pattern of testing at 55 agents catches scale-dependent bugs regardless of security features.'
       ],
-      exercise: 'Write a mini version of the fairness scenario: create 5 agents each with 10 tasks, run with alpha=0.25 and seed=42 using run_all(). Assert that Jain\'s fairness >= 0.95 and that every agent\'s service count equals 10. Then change alpha to 0.75 and observe whether fairness degrades. Document your findings as comments explaining why the alpha value matters.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Run a mini fairness scenario at alpha=0.25.</strong><br>' +
+        '<pre><code>from loco.testing import SyncTestScheduler, mock_agent\n\nagents = [mock_agent(f"agent-{i}", pending_tasks=10) for i in range(5)]\nscheduler = SyncTestScheduler(agents, alpha=0.25, seed=42)\nresult = scheduler.run_all()\n\nprint("alpha=0.25 (balanced):")\nprint(f"  Total ticks: {result.total_ticks}")\nprint(f"  Service counts: {result.service_counts}")\nfairness = scheduler.jains_fairness()\nprint(f"  Jain\\\'s fairness: {fairness:.4f}")\n\n# Verify every agent was served exactly 10 times\nfor aid, count in result.service_counts.items():\n    assert count == 10, f"{aid} served {count} times, expected 10"\nassert fairness >= 0.95, f"Fairness {fairness} below threshold"\nprint("  All assertions passed!")</code></pre>' +
+        '<strong>Step 3 -- Run the same scenario at alpha=0.75 (danger zone).</strong><br>' +
+        '<pre><code>agents2 = [mock_agent(f"agent-{i}", pending_tasks=10) for i in range(5)]\nscheduler2 = SyncTestScheduler(agents2, alpha=0.75, seed=42)\nresult2 = scheduler2.run_all()\n\nprint("\\nalpha=0.75 (danger zone):")\nprint(f"  Service counts: {result2.service_counts}")\nfairness2 = scheduler2.jains_fairness()\nprint(f"  Jain\\\'s fairness: {fairness2:.4f}")\n\n# Compare wait times\nprint("\\n  Wait times per agent:")\nfor i in range(5):\n    aid = f"agent-{i}"\n    wait = scheduler2.mean_wait_time(aid)\n    print(f"    {aid}: mean wait = {wait:.1f} ticks")</code></pre>' +
+        '<strong>Step 4 -- Compare the two runs.</strong> Look for:<br>' +
+        '<ul>' +
+        '<li>At alpha=0.25, all agents should be served exactly 10 times with fairness >= 0.95.</li>' +
+        '<li>At alpha=0.75, service counts may still be equal (with equal starting conditions), but wait times should diverge more. In scenarios with unequal workloads, alpha=0.75 causes starvation.</li>' +
+        '<li>The starvation risk at high alpha is why the AdaptiveAlphaTuner clamps to [0.0, 0.5].</li>' +
+        '</ul>' +
+        '<strong>Step 5 -- Run the actual fairness.py example for the full proof.</strong><br>' +
+        '<pre><code>exit()  # leave the REPL first</code></pre>' +
+        '<pre><code>python3 examples/fairness.py</code></pre>' +
+        'This runs 10 agents over 500 ticks with unequal arrival rates. The output table shows that alpha >= 0.75 causes real starvation (agents with zero completions). This is the empirical proof behind the alpha safety range.<br><br>' +
+        '<strong>Key takeaway:</strong> The four validated scenarios are not just examples -- they are regression tests encoding production lessons. Always validate your alpha choice against sustained workloads before deploying.'
     }
   ]
 });

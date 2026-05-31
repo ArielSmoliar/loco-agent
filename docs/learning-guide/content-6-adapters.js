@@ -24,7 +24,26 @@ window.COURSE_SECTIONS.push({
         'Using the direct wrap pattern for callback-based frameworks -- if acquire and release happen in separate callbacks (on_llm_start/on_llm_end), you MUST use the split API',
         'Forgetting that adapters handle weight estimation -- the adapter is responsible for converting framework-specific context (model name, prompt length) into a Task.weight'
       ],
-      exercise: 'Read <code>loco/adapters/anthropic.py</code> and <code>loco/adapters/base.py</code> side by side. Map each step in AnthropicAdapter.create() back to the BaseAdapter interface. Note which abstract methods are implemented and which are handled differently.'
+      exercise: '<strong>This exercise is a guided code reading.</strong> You will trace how the AnthropicAdapter implements the BaseAdapter interface.<br><br>' +
+        '<strong>Step 1 -- Open both files side by side.</strong> Use your editor or two terminal tabs to view:<br>' +
+        '<pre><code># File 1: the abstract interface\nloco/adapters/base.py\n\n# File 2: the concrete implementation\nloco/adapters/anthropic.py</code></pre>' +
+        '<strong>Step 2 -- Read BaseAdapter.</strong> Find the four abstract methods: <code>register_agent()</code>, <code>submit_task()</code>, <code>on_scheduled()</code>, and <code>on_completed()</code>. Note that each defines one step of the LOCO lifecycle.<br><br>' +
+        '<strong>Step 3 -- Read AnthropicAdapter.create().</strong> Map each line back to the lifecycle:<br>' +
+        '<ul>' +
+        '<li>Lines computing <code>input_chars</code> and <code>input_tokens_est</code> -- this is weight estimation, which BaseAdapter delegates to the concrete class.</li>' +
+        '<li>The call to <code>estimate_weight(model, input_tokens_est)</code> -- converts model name + prompt size into a Task weight. This is the adapter\\\'s core responsibility.</li>' +
+        '<li><code>await self.scheduler.submit_task(aid, task)</code> -- maps to BaseAdapter.submit_task().</li>' +
+        '<li><code>async with self.scheduler.acquire(aid)</code> -- acquires the resource slot. This is the direct wrap pattern (not the split API).</li>' +
+        '<li><code>await self.client.messages.create(...)</code> -- the actual API call, inside the resource hold.</li>' +
+        '<li><code>self.scheduler.metrics.record_actual_tokens()</code> -- empirical tracking after the call. BaseAdapter does not require this but it improves weight estimates over time.</li>' +
+        '<li><code>agent.serve_oldest_task()</code> -- dequeues the task. Without this, Qi would be inflated forever.</li>' +
+        '</ul>' +
+        '<strong>Step 4 -- Note the pattern.</strong> AnthropicAdapter does not implement all four abstract methods separately. Instead, <code>create()</code> handles the full lifecycle in one method. This is the "direct wrap" pattern -- frameworks that let you wrap a single API call. Compare this to <code>google_adk.py</code> which uses the "split" pattern with separate on_start/on_end methods.<br><br>' +
+        '<strong>Step 5 -- Verify in a REPL (no API key needed).</strong><br>' +
+        '<pre><code>python3</code></pre>' +
+        '<pre><code>from loco.adapters.anthropic import estimate_weight\n\n# Verify weight estimation without making any API calls:\nmodels = [\n    ("claude-haiku-4-5-20251001", None),\n    ("claude-sonnet-4-20250514", None),\n    ("claude-opus-4-20250514", None),\n    ("claude-sonnet-4-20250514", 5000),  # with token scaling\n    ("unknown-model-v3", None),          # falls back to 2.0\n]\nfor model, tokens in models:\n    w = estimate_weight(model, tokens)\n    print(f"  {model:>35} tokens={str(tokens):>5} -> weight={w}")</code></pre>' +
+        'Notice how weight scales with model tier (haiku=1, sonnet=2, opus=5) and with token count (5000 tokens multiplies by 5x).<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'weight-estimation',
@@ -49,7 +68,20 @@ window.COURSE_SECTIONS.push({
         'Ignoring input token count -- a 100-token prompt and a 50,000-token prompt to the same model have very different costs. The token multiplier captures this',
         'Using exact dollar costs as weights -- weights are relative proxies for scheduling, not billing amounts. The scheduler normalizes them anyway'
       ],
-      exercise: 'Call <code>estimate_weight()</code> with different model names and token counts. Try an exact model name, a family match (e.g., "my-custom-opus-v2"), and a completely unknown model name. Verify the fallback behavior matches the code.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Test exact model name matches.</strong><br>' +
+        '<pre><code>from loco.adapters.anthropic import estimate_weight\n\n# Exact matches from MODEL_WEIGHTS dict\nprint("Exact matches:")\nprint(f"  claude-opus-4-20250514:     {estimate_weight(\\\"claude-opus-4-20250514\\\")}")      # 5.0\nprint(f"  claude-sonnet-4-20250514:   {estimate_weight(\\\"claude-sonnet-4-20250514\\\")}")    # 2.0\nprint(f"  claude-haiku-4-5-20251001:  {estimate_weight(\\\"claude-haiku-4-5-20251001\\\")}")   # 1.0</code></pre>' +
+        '<strong>Step 3 -- Test family name fallback matching.</strong><br>' +
+        '<pre><code># Family fallback: looks for "opus", "sonnet", "haiku" in the model name\nprint("\\nFamily fallback:")\nprint(f"  my-custom-opus-v2:   {estimate_weight(\\\"my-custom-opus-v2\\\")}")    # 5.0 (contains "opus")\nprint(f"  fine-tuned-sonnet:   {estimate_weight(\\\"fine-tuned-sonnet\\\")}")    # 2.0 (contains "sonnet")\nprint(f"  mini-haiku-fast:     {estimate_weight(\\\"mini-haiku-fast\\\")}")      # 1.0 (contains "haiku")</code></pre>' +
+        'Even model names that are not in the exact dict work, as long as they contain a family keyword.<br><br>' +
+        '<strong>Step 4 -- Test unknown model fallback.</strong><br>' +
+        '<pre><code># Completely unknown model -- defaults to 2.0 (sonnet-tier)\nprint("\\nUnknown model fallback:")\nprint(f"  gpt-4o:              {estimate_weight(\\\"gpt-4o\\\")}")               # 2.0\nprint(f"  mystery-model-v7:    {estimate_weight(\\\"mystery-model-v7\\\")}")     # 2.0\nprint(f"  gemini-pro:          {estimate_weight(\\\"gemini-pro\\\")}")           # 2.0</code></pre>' +
+        'Unknown models default to 2.0 -- a conservative sonnet-tier estimate.<br><br>' +
+        '<strong>Step 5 -- Test token count scaling.</strong><br>' +
+        '<pre><code># Weight scales linearly with input tokens above 1000\nprint("\\nToken scaling (sonnet base=2.0):")\nfor tokens in [100, 500, 1000, 5000, 10000, 50000]:\n    w = estimate_weight("claude-sonnet-4-20250514", tokens)\n    multiplier = max(tokens / 1000, 1.0)\n    print(f"  {tokens:>6} tokens: weight={w:>6.1f}  (base * max({tokens}/1000, 1.0) = 2.0 * {multiplier})")</code></pre>' +
+        'Below 1000 tokens, the multiplier floors at 1.0 (no reduction). Above 1000, weight scales linearly. A 50K-token opus prompt has weight 250 -- the scheduler treats it as 250x more expensive than a haiku with a short prompt.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'anthropic-adapter',
@@ -68,7 +100,20 @@ window.COURSE_SECTIONS.push({
         'Not recording actual token usage -- empirical tracking via record_actual_tokens() allows the scheduler to refine weight estimates over time with EMA',
         'Using a synchronous Anthropic client -- the adapter requires AsyncAnthropic, not the sync Anthropic client'
       ],
-      exercise: 'Read the full AnthropicAdapter source code and draw a sequence diagram showing every method call in order: from create() being called, through submit_task, acquire, client.messages.create, record_actual_tokens, serve_oldest_task, to release. Label which object handles each step.'
+      exercise: '<strong>This exercise is a guided code reading + diagramming exercise.</strong><br><br>' +
+        '<strong>Step 1 -- Read the source.</strong> Open <code>loco/adapters/anthropic.py</code> and find the <code>create()</code> method. Read it top to bottom, noting every method call and which object handles it.<br><br>' +
+        '<strong>Step 2 -- Draw the sequence.</strong> On paper or in a notes app, draw this sequence diagram showing the 8 steps of <code>create()</code>:<br>' +
+        '<pre><code>Caller          AnthropicAdapter     AsyncLOCOScheduler     SharedResource     Anthropic API\n  |                    |                     |                    |                  |\n  |-- create() ------->|                     |                    |                  |\n  |                    |-- 1. estimate_weight (local)             |                  |\n  |                    |-- 2. submit_task --->|                   |                  |\n  |                    |-- 3. acquire ------->|-- try_acquire ---->|                  |\n  |                    |                     |  (or wait_for_slot)|                  |\n  |                    |-- 4. policy check   |                   |                  |\n  |                    |-- 5. messages.create |--------------------|-- API call ----->|\n  |                    |                     |                    |                  |\n  |                    |<- 6. record_actual_tokens               |                  |\n  |                    |-- 7. serve_oldest_task (dequeue)         |                  |\n  |                    |                     |<-- release --------|                  |\n  |                    |                     |-- 8. _on_release   |                  |\n  |<-- response -------|                     |                    |                  |</code></pre>' +
+        '<strong>Step 3 -- Verify your understanding.</strong> Open a REPL and inspect the adapter without making API calls:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<pre><code>from loco import AsyncLOCOScheduler, SharedResource\nfrom loco.adapters.anthropic import AnthropicAdapter, estimate_weight\n\n# You can create the adapter without an API key to inspect its structure\nresource = SharedResource(name="claude_api", capacity=3)\nscheduler = AsyncLOCOScheduler([], resource, optimize_for="balanced")\n\nprint(f"Resource capacity: {resource.capacity}")\nprint(f"Scheduler agents: {list(scheduler.agents.keys())}")\nprint(f"Logical tick: {scheduler.logical_tick}")\n\n# The adapter class exists even without a real client\nprint(f"\\nAnthropicAdapter methods: {[m for m in dir(AnthropicAdapter) if not m.startswith(\\\"_\\\")]}")</code></pre>' +
+        '<strong>Step 4 -- Answer these questions</strong> (check your answers against the source):<br>' +
+        '<ul>' +
+        '<li>Why does create() call submit_task BEFORE acquire? (Answer: the task must be in the agent\\\'s queue for scoring to work correctly)</li>' +
+        '<li>Why is serve_oldest_task called INSIDE the acquire context? (Answer: to ensure the task is dequeued before release triggers re-scoring)</li>' +
+        '<li>What happens if record_actual_tokens is skipped? (Answer: the EMA weight estimates stay at static values, never improving)</li>' +
+        '</ul>' +
+        '<strong>Step 5 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'convenience-api',
@@ -93,7 +138,17 @@ window.COURSE_SECTIONS.push({
         'Using the convenience API when you need multiple resources -- the singleton manages one resource. For multi-resource setups, use AsyncLOCOScheduler directly',
         'Forgetting that wrap() auto-registers agents -- you do not need to pre-register agents when using the convenience API'
       ],
-      exercise: 'Build a minimal async script that uses <code>loco.configure()</code> and <code>loco.wrap()</code> to schedule 3 concurrent mock API calls (use <code>asyncio.sleep</code> as the callable). Add budget limits and verify that BudgetExceededError is raised when an agent exceeds its budget.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Configure LOCO with the convenience API.</strong><br>' +
+        '<pre><code>import asyncio\nimport loco\n\n# Reset in case configure was called before in this session\nloco.reset()\nloco.configure(\n    capacity=2,\n    optimize_for="balanced",\n    budget_mode="reject",\n)\nprint("LOCO configured with capacity=2 and budget enforcement")</code></pre>' +
+        '<strong>Step 3 -- Use wrap() to schedule mock API calls.</strong><br>' +
+        '<pre><code>async def mock_api_call(prompt, delay=0.1):\n    """Simulates an LLM API call with a short delay."""\n    await asyncio.sleep(delay)\n    return f"Response to: {prompt}"\n\nasync def test_wrap():\n    # Schedule 3 calls from different agents\n    r1 = await loco.wrap(mock_api_call, agent_id="analyst", weight=2.0,\n                         prompt="analyze data", delay=0.1)\n    print(f"analyst: {r1}")\n\n    r2 = await loco.wrap(mock_api_call, agent_id="chatbot", weight=1.0,\n                         prompt="hello", delay=0.05)\n    print(f"chatbot: {r2}")\n\n    r3 = await loco.wrap(mock_api_call, agent_id="analyst", weight=5.0,\n                         prompt="deep analysis", delay=0.1)\n    print(f"analyst: {r3}")\n\n    # Check cumulative costs\n    scheduler = loco.get_scheduler()\n    print(f"\\nCosts: {scheduler.metrics.cost_by_agent()}")\n\nasyncio.run(test_wrap())</code></pre>' +
+        'You should see all three calls succeed. The analyst spent 7.0 (2.0 + 5.0) and the chatbot spent 1.0.<br><br>' +
+        '<strong>Step 4 -- Add budget limits and trigger a rejection.</strong><br>' +
+        '<pre><code>loco.reset()\nloco.configure(capacity=2, optimize_for="balanced", budget_mode="reject")\nloco.set_budget("analyst", max_cost=5.0)\n\nasync def test_budget():\n    # First call: weight=3.0, under budget\n    r1 = await loco.wrap(mock_api_call, agent_id="analyst", weight=3.0,\n                         prompt="first call")\n    print(f"Call 1: OK (spent 3.0 of 5.0)")\n\n    # Second call: weight=3.0, would exceed budget (3+3=6 > 5)\n    try:\n        r2 = await loco.wrap(mock_api_call, agent_id="analyst", weight=3.0,\n                             prompt="second call")\n    except Exception as e:\n        print(f"Call 2: REJECTED -- {type(e).__name__}")\n\n    # Chatbot has no budget limit -- unlimited\n    r3 = await loco.wrap(mock_api_call, agent_id="chatbot", weight=10.0,\n                         prompt="unlimited")\n    print(f"Call 3: chatbot OK (no budget limit)")\n\nasyncio.run(test_budget())</code></pre>' +
+        'The analyst\\\'s second call is rejected because cumulative weight (6.0) would exceed the 5.0 budget. The chatbot has no specific limit set, so it uses the default (which is None -- unlimited unless you set a default_limit).<br><br>' +
+        '<strong>Step 5 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     }
   ]
 });

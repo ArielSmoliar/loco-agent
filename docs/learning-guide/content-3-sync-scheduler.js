@@ -25,7 +25,23 @@ window.COURSE_SECTIONS.push({
         'Forgetting the seed parameter -- without a seed, tie-breaking is non-deterministic, making tests flaky',
         'Accessing agents by list index instead of dict key -- self.agents is a dict keyed by agent_id, not a list'
       ],
-      exercise: 'Create a LOCOScheduler with 3 agents, first with optimize_for="balanced", then with alpha=0.25. Verify that both produce the same scores for the same input. Try passing both and confirm the ValueError.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create three agents with different workloads.</strong><br>' +
+        '<pre><code>from loco import Agent, Task, LOCOScheduler\n\nagent_a = Agent(agent_id="A")\nagent_a.tasks = [Task(weight=2.0, age=5), Task(weight=2.0, age=3)]\n\nagent_b = Agent(agent_id="B")\nagent_b.tasks = [Task(weight=1.0, age=10)]\n\nagent_c = Agent(agent_id="C")\nagent_c.tasks = [Task(weight=5.0, age=1), Task(weight=5.0, age=1)]</code></pre>' +
+        '<strong>Step 3 -- Create a scheduler with optimize_for="balanced".</strong><br>' +
+        '<pre><code>s1 = LOCOScheduler([agent_a, agent_b, agent_c], optimize_for="balanced")\nprint(f"alpha from optimize_for: {s1.alpha}")\nscores1 = s1.compute_load_scores()\nprint(f"scores (optimize_for): {scores1}")</code></pre>' +
+        'You should see <code>alpha=0.25</code> and a dict of scores for agents A, B, and C.<br><br>' +
+        '<strong>Step 4 -- Create a second scheduler with alpha=0.25 directly.</strong><br>' +
+        '<pre><code>s2 = LOCOScheduler([agent_a, agent_b, agent_c], alpha=0.25)\nprint(f"alpha from direct: {s2.alpha}")\nscores2 = s2.compute_load_scores()\nprint(f"scores (alpha=0.25): {scores2}")</code></pre>' +
+        'The scores should be identical to Step 3. <code>optimize_for="balanced"</code> is a shortcut for <code>alpha=0.25</code>.<br><br>' +
+        '<strong>Step 5 -- Verify that passing both raises an error.</strong><br>' +
+        '<pre><code>try:\n    bad = LOCOScheduler([agent_a], alpha=0.25, optimize_for="balanced")\nexcept ValueError as e:\n    print(f"Error: {e}")</code></pre>' +
+        'You should see a ValueError. The scheduler refuses ambiguous configuration -- pick one approach or the other, never both.<br><br>' +
+        '<strong>Step 6 -- Try all three presets and compare.</strong><br>' +
+        '<pre><code>for preset in ["latency", "balanced", "throughput"]:\n    s = LOCOScheduler([agent_a, agent_b, agent_c], optimize_for=preset)\n    scores = s.compute_load_scores()\n    print(f"{preset:>12}: alpha={s.alpha}  scores={scores}")</code></pre>' +
+        'Notice how latency (alpha=0.0) makes Agent B win (longest wait time, Dmax=10), while throughput (alpha=0.5) shifts toward Agent C (deepest backlog, Qi=10). Balanced sits in between.<br><br>' +
+        '<strong>Step 7 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'compute-load-scores',
@@ -48,7 +64,20 @@ window.COURSE_SECTIONS.push({
         'Forgetting the "or 1.0" guard -- when all Qi or Dmax values are 0, the code uses 1.0 as the divisor to avoid division by zero',
         'Misunderstanding normalization -- scores are relative to the current max, not to any fixed scale. If the highest Qi is 10, an agent with Qi=5 gets 0.5 for that term'
       ],
-      exercise: 'Write a function that takes a list of (Qi, Dmax) tuples and an alpha, and computes L(i) scores by hand. Compare your results against LOCOScheduler.compute_load_scores() with the same inputs to verify your understanding.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Write a hand-calculation function.</strong> This implements the same formula as <code>compute_load_scores()</code>:<br>' +
+        '<pre><code>def hand_calc(agents_data, alpha):\n    """agents_data: list of (agent_id, Qi, Dmax) tuples"""\n    max_q = max(qi for _, qi, _ in agents_data) or 1.0\n    max_d = max(dmax for _, _, dmax in agents_data) or 1.0\n    return {\n        aid: alpha * (qi / max_q) + (1 - alpha) * (dmax / max_d)\n        for aid, qi, dmax in agents_data\n    }</code></pre>' +
+        '<strong>Step 3 -- Define test data and compute by hand.</strong><br>' +
+        '<pre><code># Three agents with known values:\n# Agent A: Qi=6 (3 tasks, weight 2.0 each), Dmax=15\n# Agent B: Qi=5 (1 task, weight 5.0),      Dmax=3\n# Agent C: Qi=4 (4 tasks, weight 1.0 each), Dmax=25\ndata = [("A", 6, 15), ("B", 5, 3), ("C", 4, 25)]\n\nfor alpha in [0.0, 0.25, 0.5]:\n    scores = hand_calc(data, alpha)\n    winner = max(scores, key=scores.get)\n    print(f"alpha={alpha}: {scores}  -> winner={winner}")</code></pre>' +
+        'Predict the winners before running. At alpha=0.0, C wins (highest Dmax=25). At alpha=0.5, A becomes competitive (highest Qi=6).<br><br>' +
+        '<strong>Step 4 -- Build the same scenario with real LOCO objects.</strong><br>' +
+        '<pre><code>from loco import Agent, Task, LOCOScheduler\n\nagent_a = Agent(agent_id="A")\nagent_a.tasks = [Task(weight=2.0, age=15), Task(weight=2.0, age=10), Task(weight=2.0, age=5)]\n\nagent_b = Agent(agent_id="B")\nagent_b.tasks = [Task(weight=5.0, age=3)]\n\nagent_c = Agent(agent_id="C")\nagent_c.tasks = [Task(weight=1.0, age=25), Task(weight=1.0, age=20),\n                 Task(weight=1.0, age=15), Task(weight=1.0, age=10)]\n\nfor alpha in [0.0, 0.25, 0.5]:\n    s = LOCOScheduler([agent_a, agent_b, agent_c], alpha=alpha)\n    scores = s.compute_load_scores()\n    winner = max(scores, key=scores.get)\n    print(f"alpha={alpha}: {scores}  -> winner={winner}")</code></pre>' +
+        'The scores from the real scheduler should match your hand calculations exactly. This proves <code>compute_load_scores()</code> implements the formula you computed by hand.<br><br>' +
+        '<strong>Step 5 -- Verify edge case: all agents idle.</strong><br>' +
+        '<pre><code>for agent in [agent_a, agent_b, agent_c]:\n    agent.tasks = []\n\ns = LOCOScheduler([agent_a, agent_b, agent_c], alpha=0.25)\nprint(f"Scores when all idle: {s.compute_load_scores()}")</code></pre>' +
+        'The result should be an empty dict <code>{}</code>. Agents with no tasks are invisible to the scoring function.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'select-agent',
@@ -69,7 +98,21 @@ window.COURSE_SECTIONS.push({
         'Forgetting to pass a seed to LOCOScheduler -- without a seed, tie-breaks are non-deterministic and tests become flaky',
         'Not handling the None return -- select_agent returns None when scores is empty (all agents idle). Always check for None before accessing the result'
       ],
-      exercise: 'Create two agents with identical task distributions (same number of tasks, same weights, same ages). Run <code>compute_load_scores()</code> to confirm they tie, then call <code>select_agent()</code> multiple times with different seeds. Verify the winner changes with the seed but is consistent for a given seed.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create two agents with identical workloads.</strong> Same number of tasks, same weights, same ages -- guaranteed to produce a tie:<br>' +
+        '<pre><code>from loco import Agent, Task, LOCOScheduler\n\ndef make_tied_agents():\n    a = Agent(agent_id="X")\n    a.tasks = [Task(weight=2.0, age=5), Task(weight=2.0, age=3)]\n    b = Agent(agent_id="Y")\n    b.tasks = [Task(weight=2.0, age=5), Task(weight=2.0, age=3)]\n    return a, b\n\nagent_x, agent_y = make_tied_agents()\ns = LOCOScheduler([agent_x, agent_y], alpha=0.25, seed=42)\nscores = s.compute_load_scores()\nprint(f"Scores: {scores}")</code></pre>' +
+        'Both agents should have the exact same score (1.0), confirming a perfect tie.<br><br>' +
+        '<strong>Step 3 -- Break the tie with select_agent().</strong><br>' +
+        '<pre><code>winner = s.select_agent(scores)\nprint(f"Winner with seed=42: {winner.agent_id}")</code></pre>' +
+        'One of them wins. Note which one -- with seed=42, the same agent will always win.<br><br>' +
+        '<strong>Step 4 -- Try different seeds and verify determinism.</strong><br>' +
+        '<pre><code>for seed in [42, 42, 42, 99, 99, 123]:\n    a, b = make_tied_agents()\n    s = LOCOScheduler([a, b], alpha=0.25, seed=seed)\n    scores = s.compute_load_scores()\n    winner = s.select_agent(scores)\n    print(f"seed={seed:>3}: winner={winner.agent_id}")</code></pre>' +
+        'The same seed always produces the same winner (deterministic), but different seeds may produce different winners (fair). This is why tests must always set a seed -- without one, tie-breaks are random and tests become flaky.<br><br>' +
+        '<strong>Step 5 -- Verify select_agent returns None when scores are empty.</strong><br>' +
+        '<pre><code>result = s.select_agent({})\nprint(f"Empty scores result: {result}")</code></pre>' +
+        'Returns <code>None</code>. Always check for None before accessing <code>.agent_id</code> on the result.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'step-method',
@@ -91,7 +134,19 @@ window.COURSE_SECTIONS.push({
         'Forgetting that aging happens AFTER serving -- the served task does not age, but all remaining tasks do',
         'Not checking StepResult.selected_agent for None -- when all agents are idle, no one is selected and no task is served'
       ],
-      exercise: 'Create a LOCOScheduler with 2 agents (3 and 7 tasks each). Call <code>_step()</code> in a loop until <code>total_tasks_remaining()</code> is 0. After each step, print the selected agent ID and the served task\'s age. Observe how the agent with more tasks gets served more often (at alpha=0.5) or how the pattern changes at alpha=0.0.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create two unevenly loaded agents.</strong> We use <code>SyncTestScheduler</code> which exposes the public <code>step()</code> method (it wraps <code>LOCOScheduler._step()</code> internally):<br>' +
+        '<pre><code>from loco.testing import SyncTestScheduler, mock_agent\n\nagents = [\n    mock_agent("light", pending_tasks=3),\n    mock_agent("heavy", pending_tasks=7),\n]\nscheduler = SyncTestScheduler(agents, alpha=0.5, seed=42)\nprint(f"Total tasks: {scheduler.total_tasks_remaining()}")</code></pre>' +
+        'You should see 10 total tasks.<br><br>' +
+        '<strong>Step 3 -- Step through and observe which agent gets served.</strong><br>' +
+        '<pre><code>while scheduler.total_tasks_remaining() > 0:\n    result = scheduler.step()\n    if result.selected_agent:\n        aid = result.selected_agent.agent_id\n        task_age = result.served_task.age if result.served_task else 0\n        light_left = len(scheduler.get_agent("light").tasks)\n        heavy_left = len(scheduler.get_agent("heavy").tasks)\n        print(f"Tick {scheduler.tick:>2}: served={aid:>5}  "\n              f"task_age={task_age:>2}  "\n              f"light={light_left}  heavy={heavy_left}")</code></pre>' +
+        'With alpha=0.5 (throughput), "heavy" (deeper backlog) gets served more often in early ticks. As its queue drains toward "light"\'s size, the balance shifts.<br><br>' +
+        '<strong>Step 4 -- Run the same scenario with alpha=0.0 (latency).</strong><br>' +
+        '<pre><code>agents2 = [\n    mock_agent("light", pending_tasks=3),\n    mock_agent("heavy", pending_tasks=7),\n]\nscheduler2 = SyncTestScheduler(agents2, alpha=0.0, seed=42)\n\nprint("\\nalpha=0.0 (latency mode):")\nwhile scheduler2.total_tasks_remaining() > 0:\n    result = scheduler2.step()\n    if result.selected_agent:\n        aid = result.selected_agent.agent_id\n        print(f"Tick {scheduler2.tick:>2}: served={aid:>5}")</code></pre>' +
+        'With alpha=0.0, only Dmax matters. The service pattern should alternate more evenly -- whichever agent has waited longest gets the next turn, regardless of backlog size.<br><br>' +
+        '<strong>Step 5 -- Compare the two runs.</strong> Look at the task_age column from Step 3. Each tick, ALL remaining tasks across both agents age by 1. A task submitted at tick 0 and served at tick 5 has age=5. This is the logical tick mechanism driving Dmax growth and preventing starvation.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     }
   ]
 });

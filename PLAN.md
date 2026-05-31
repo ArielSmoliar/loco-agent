@@ -1230,3 +1230,152 @@ If the schedule slips, cut in this order:
 | 3rd | Observability (Day 9) | Ship with `scheduler.history` list only, no structured JSON logs |
 | **Never cut** | Scenario validation (Day 7) | This is the proof. Without it, there's no credibility claim |
 | **Never cut** | Async resource (Days 4-5) | This is the production interface. Without it, it's a toy |
+
+---
+
+## v0.3 -- Security Architecture (Plan/Policy Layer)
+
+> **Motivation:** NVIDIA + Johns Hopkins published "Architecting Secure AI Agents" (arXiv:2603.50016, March 2026)
+> proposing that system-level defense -- not model fine-tuning -- is the "skeleton and backbone" for secure agents.
+> Their architecture has four components: Orchestrator, Plan/Policy Approver, Executor, Policy Enforcer.
+> LOCO already sits at the Orchestrator/dispatch layer. v0.3 formalizes this by separating Plan (what to do)
+> from Policy (what's allowed), generalizing BudgetManager into the first of many policy types, and adding
+> security metadata to task envelopes. This makes LOCO the scheduling layer that enterprises can audit.
+
+### What we already have
+
+BudgetManager is already a policy primitive -- it enforces per-agent spend limits with reject/alert/downgrade
+modes at acquire time. v0.3 generalizes this pattern: BudgetManager becomes one policy type among several,
+all enforced through a unified PolicyEnforcer at the dispatch point.
+
+### Design tradeoff: Plan mutability
+
+The NVIDIA paper's Position 1 argues plans must be mutable at runtime (agents need to replan after a 410 Gone
+endpoint, or after discovering a crash only exists in production). LOCO currently has no Plan object -- the
+scheduler reacts to events via the load function, but there's no declarative execution graph.
+
+Two options:
+- **Static Plan (v0.3):** A Plan is an immutable execution graph submitted at task time. Audit-friendly --
+  you can always answer "what was the plan when this ran?" Replanning means submitting a new Plan.
+- **Mutable Plan (v0.4+):** Plans can be revised in-flight based on environment feedback. Matches the paper's
+  Position 1, but harder to audit and opens the attack surface they describe (adversarial feedback mutating plans).
+
+**Decision: Ship static plans in v0.3.** Mutable plans are a v0.4 problem once we have users hitting the limitation.
+
+### New modules
+
+| Module | Purpose |
+|--------|---------|
+| `loco/plan.py` | `Plan` dataclass -- ordered execution graph submitted with a task batch |
+| `loco/policy.py` | `Policy` base class + built-in policy types. BudgetManager refactored as `BudgetPolicy` |
+| `loco/enforcer.py` | `PolicyEnforcer` -- sits between scheduler grant and task execution, approves/blocks each action |
+| `loco/labels.py` | `SecurityLabel` enum (`public`, `internal`, `confidential`) + task envelope metadata |
+
+### API sketch
+
+```python
+from loco import Plan, Policy, BudgetPolicy, AccessPolicy, PolicyEnforcer
+from loco import SecurityLabel as SL
+
+# Plan: declarative execution graph
+plan = Plan(
+    steps=[
+        Step("fetch_emails", agent="reader"),
+        Step("summarize", agent="analyst", depends_on=["fetch_emails"]),
+        Step("draft_reply", agent="writer", depends_on=["summarize"]),
+    ]
+)
+
+# Policies: what's allowed
+policies = [
+    BudgetPolicy(limits={"analyst": 50.0, "writer": 20.0}),  # generalized from BudgetManager
+    AccessPolicy(
+        rules={
+            "reader": {"tools": ["get_email"], "resources": ["email_api"]},
+            "writer": {"tools": ["send_email"], "resources": ["email_api"]},
+        }
+    ),
+]
+
+# Enforcer: approve/block at dispatch time
+enforcer = PolicyEnforcer(policies=policies)
+
+# Wire into scheduler
+scheduler = AsyncLOCOScheduler(
+    agents=agents,
+    resource=resource,
+    plan=plan,
+    enforcer=enforcer,  # replaces budget= parameter
+)
+```
+
+### Security labels (metadata only in v0.3)
+
+Labels are optional metadata on task inputs/outputs. v0.3 attaches them and logs them.
+v0.4 enforces flow constraints (no write-down from confidential to public).
+
+```python
+from loco import Task, SecurityLabel
+
+task = Task(
+    task_id="summarize_pii",
+    weight=3,
+    labels={"input": SecurityLabel.CONFIDENTIAL, "output": SecurityLabel.INTERNAL},
+)
+
+# Scheduling log now includes:
+# {"event": "grant", "agent": "analyst", "labels": {"input": "confidential", "output": "internal"}, ...}
+```
+
+### Policy types (v0.3 ships these three)
+
+| Policy | What it does | Derived from |
+|--------|-------------|-------------|
+| `BudgetPolicy` | Per-agent spend limits, reject/alert/downgrade | Existing BudgetManager (refactored, not rewritten) |
+| `AccessPolicy` | Which tools/resources each agent can use | New -- maps to NVIDIA's "static access-control rules" |
+| `RatePolicy` | Per-agent request rate limits (e.g., max 10 acquires/minute) | New -- common enterprise request |
+
+### Security-aware feedback middleware (v0.3 stretch)
+
+When tool results come back, validate them through structured checks before the orchestrator
+sees raw text. This blocks the indirect prompt injection vector the NVIDIA paper focuses on.
+
+```python
+from loco import FeedbackFilter
+
+filter = FeedbackFilter(
+    max_output_size=4096,          # truncate oversized responses
+    strip_tags=True,               # remove HTML/script tags
+    validate_schema="tool_result", # enforce expected JSON schema
+)
+
+scheduler = AsyncLOCOScheduler(..., feedback_filter=filter)
+```
+
+**This is the stretch goal for v0.3.** Ship Plan/Policy/Enforcer first.
+
+### Migration path
+
+- `BudgetManager` stays as a public alias for `BudgetPolicy` in v0.3 (no breaking change)
+- `scheduler = AsyncLOCOScheduler(..., budget=budget)` continues to work, internally wraps in PolicyEnforcer
+- New `enforcer=` parameter is the forward-looking API
+- Deprecation warning on `budget=` parameter in v0.4
+
+### What this unlocks
+
+- **Enterprise compliance:** "Show me the policy that governed this scheduling decision" -- every grant event
+  in the audit log now includes which policies were evaluated and whether they passed
+- **Security positioning:** LOCO isn't just a scheduler, it's the policy enforcement point for multi-agent systems
+- **NVIDIA alignment:** The architecture diagram in arXiv:2603.50016 maps directly to LOCO's components
+- **Taesoo Kim outreach:** AutoGen demo can now show policy enforcement, not just cost governance
+
+### Publish: Long-horizon security benchmark (separate from build)
+
+The NVIDIA paper explicitly calls out that existing agent security benchmarks cover only 3-4 step tasks.
+LOCO's multi-agent scheduling scenarios are inherently long-horizon. Opportunity to publish a benchmark
+that tests security under dynamic, multi-step, load-varying conditions.
+
+- Format: blog post or workshop paper
+- Content: extend Scenario 4 (MDASH security) with adversarial prompt injection during scheduling
+- Differentiator: no existing benchmark tests security + scheduling + dynamic replanning together
+- Timeline: after v0.3 ships, not during

@@ -22,7 +22,21 @@ window.COURSE_SECTIONS.push({
         'Forgetting that AsyncLOCOScheduler auto-creates SchedulerMetrics -- you do not need to create metrics separately, just access scheduler.metrics',
         'Pre-registering agents when auto-registration works -- for most use cases, agents auto-register on first submit_task() call, simplifying setup'
       ],
-      exercise: 'Create an AsyncLOCOScheduler with an empty agent list and a SharedResource with capacity=2. Submit a task to an unknown agent_id and verify it auto-registers by checking <code>scheduler.agents</code>. Then try <code>register_agent()</code> with a duplicate ID and observe the ValueError.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create an AsyncLOCOScheduler with no agents.</strong> We need <code>asyncio.run()</code> to call async methods from the REPL:<br>' +
+        '<pre><code>import asyncio\nfrom loco import AsyncLOCOScheduler, SharedResource, Task\n\nresource = SharedResource(name="llm_api", capacity=2)\nscheduler = AsyncLOCOScheduler([], resource, optimize_for="balanced")\nprint(f"Agents at start: {list(scheduler.agents.keys())}")</code></pre>' +
+        'You should see an empty list -- no agents registered yet.<br><br>' +
+        '<strong>Step 3 -- Submit a task to an unknown agent and watch it auto-register.</strong><br>' +
+        '<pre><code>async def test_auto_register():\n    await scheduler.submit_task("mystery-agent", Task(weight=2.0))\n    print(f"Agents after submit: {list(scheduler.agents.keys())}")\n    agent = scheduler.get_agent("mystery-agent")\n    print(f"Agent type: {agent.agent_type}")\n    print(f"Tasks in queue: {len(agent.tasks)}")\n\nasyncio.run(test_auto_register())</code></pre>' +
+        'The agent "mystery-agent" was created automatically on first contact. You never had to pre-register it. It has one task in its queue.<br><br>' +
+        '<strong>Step 4 -- Try registering a duplicate agent.</strong><br>' +
+        '<pre><code>from loco import Agent\n\ntry:\n    scheduler.register_agent(Agent(agent_id="mystery-agent"))\nexcept ValueError as e:\n    print(f"Error: {e}")</code></pre>' +
+        'You should see a ValueError because "mystery-agent" already exists (it was auto-registered in Step 3). You cannot have two agents with the same ID.<br><br>' +
+        '<strong>Step 5 -- Check that metrics were auto-created.</strong><br>' +
+        '<pre><code>print(f"Metrics object exists: {scheduler.metrics is not None}")\nprint(f"Resource utilization: {scheduler.metrics.resource_utilization()}")\nprint(f"Logical tick: {scheduler.logical_tick}")</code></pre>' +
+        'SchedulerMetrics is auto-created on every AsyncLOCOScheduler -- you never create it manually.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'acquire-context-manager',
@@ -50,7 +64,15 @@ window.COURSE_SECTIONS.push({
         'Forgetting to submit a task before acquiring -- acquire() checks the agent\'s task queue for policy evaluation. Without a task, policy checks may behave unexpectedly',
         'Using acquire() in callback-based frameworks -- if acquire and release happen in different callbacks, use acquire_start()/release_handle() instead'
       ],
-      exercise: 'Write an async test with a SharedResource(capacity=1). Have two agents acquire concurrently (using asyncio.gather). Verify that one acquires immediately and the other blocks until the first releases. Add a timeout of 0.1 seconds and verify TimeoutError is raised when the slot is not released in time.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Set up a scheduler with capacity=1 and two agents.</strong><br>' +
+        '<pre><code>import asyncio\nfrom loco import Agent, AsyncLOCOScheduler, SharedResource, Task\n\nasync def test_contention():\n    agents = [Agent(agent_id="fast"), Agent(agent_id="slow")]\n    resource = SharedResource(name="api", capacity=1)\n    scheduler = AsyncLOCOScheduler(agents, resource, optimize_for="balanced")\n\n    # Give both agents tasks\n    await scheduler.submit_task("fast", Task(weight=1.0))\n    await scheduler.submit_task("slow", Task(weight=1.0))\n\n    results = []\n\n    async def use_slot(agent_id, delay):\n        async with scheduler.acquire(agent_id):\n            results.append(f"{agent_id} acquired")\n            await asyncio.sleep(delay)\n            scheduler.get_agent(agent_id).serve_oldest_task()\n        results.append(f"{agent_id} released")\n\n    # Fast finishes in 0.1s, slow takes 0.3s\n    await asyncio.gather(\n        use_slot("fast", 0.1),\n        use_slot("slow", 0.3),\n    )\n\n    for r in results:\n        print(r)\n\nasyncio.run(test_contention())</code></pre>' +
+        'With capacity=1, only one agent can hold the resource at a time. One acquires immediately; the other blocks until the first releases. Look at the order of "acquired" and "released" messages.<br><br>' +
+        '<strong>Step 3 -- Test timeout behavior.</strong><br>' +
+        '<pre><code>async def test_timeout():\n    agents = [Agent(agent_id="holder"), Agent(agent_id="waiter")]\n    resource = SharedResource(name="api", capacity=1)\n    scheduler = AsyncLOCOScheduler(agents, resource, optimize_for="balanced")\n\n    await scheduler.submit_task("holder", Task(weight=1.0))\n    await scheduler.submit_task("waiter", Task(weight=1.0))\n\n    async def hold_forever(agent_id):\n        async with scheduler.acquire(agent_id):\n            await asyncio.sleep(10)  # holds for a long time\n\n    async def try_with_timeout(agent_id):\n        try:\n            async with scheduler.acquire(agent_id, timeout=0.1):\n                print("Should not reach here")\n        except TimeoutError:\n            print(f"{agent_id} timed out after 0.1s -- correct!")\n\n    await asyncio.gather(\n        hold_forever("holder"),\n        try_with_timeout("waiter"),\n        return_exceptions=True,\n    )\n\nasyncio.run(test_timeout())</code></pre>' +
+        '"waiter" should time out after 0.1 seconds because "holder" never releases the single slot. The timeout parameter prevents indefinite blocking.<br><br>' +
+        '<strong>Step 4 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'split-api',
@@ -75,7 +97,17 @@ window.COURSE_SECTIONS.push({
         'Using acquire() in callback-based frameworks instead of the split API -- the context manager cannot span separate callback methods',
         'Forgetting that release_handle runs the same _on_release() logic -- it ages tasks, re-scores, and grants the next waiter, just like the context manager exit'
       ],
-      exercise: 'Write a mock callback handler class with <code>on_start</code> and <code>on_end</code> methods. In <code>on_start</code>, call <code>acquire_start()</code> and store the handle. In <code>on_end</code>, call <code>release_handle()</code>. Test that the resource is properly acquired and released across the two method calls.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create a mock callback handler using the split API.</strong><br>' +
+        '<pre><code>import asyncio\nfrom loco import Agent, AsyncLOCOScheduler, SharedResource, Task\n\nclass MockCallbackHandler:\n    def __init__(self, scheduler):\n        self.scheduler = scheduler\n        self._handles = {}  # request_id -> AcquireHandle\n\n    async def on_start(self, request_id, agent_id):\n        """Called when an LLM request begins."""\n        await self.scheduler.submit_task(agent_id, Task(weight=2.0))\n        handle = await self.scheduler.acquire_start(agent_id)\n        self._handles[request_id] = handle\n        print(f"  [{request_id}] acquired slot for {agent_id}")\n\n    async def on_end(self, request_id):\n        """Called when an LLM request completes."""\n        handle = self._handles.pop(request_id)\n        agent = self.scheduler.get_agent(handle.agent_id)\n        agent.serve_oldest_task()\n        await self.scheduler.release_handle(handle)\n        print(f"  [{request_id}] released slot for {handle.agent_id}")</code></pre>' +
+        '<strong>Step 3 -- Test the handler with two sequential requests.</strong><br>' +
+        '<pre><code>async def test_split_api():\n    agents = [Agent(agent_id="bot")]\n    resource = SharedResource(name="api", capacity=1)\n    scheduler = AsyncLOCOScheduler(agents, resource, optimize_for="balanced")\n    handler = MockCallbackHandler(scheduler)\n\n    # Request 1: start -> end\n    print("Request 1:")\n    await handler.on_start("req-1", "bot")\n    print(f"  Utilization: {resource.utilization}")  # 1.0 (slot held)\n    await handler.on_end("req-1")\n    print(f"  Utilization: {resource.utilization}")  # 0.0 (slot freed)\n\n    # Request 2: start -> end\n    print("\\nRequest 2:")\n    await handler.on_start("req-2", "bot")\n    print(f"  Utilization: {resource.utilization}")  # 1.0\n    await handler.on_end("req-2")\n    print(f"  Utilization: {resource.utilization}")  # 0.0\n\n    print(f"\\nCompleted tasks: {len(scheduler.get_agent(\\\"bot\\\").completed_tasks)}")\n\nasyncio.run(test_split_api())</code></pre>' +
+        'Utilization should go to 1.0 after each <code>on_start</code> and back to 0.0 after each <code>on_end</code>. The handle carries context between the two methods -- this is how callback-based frameworks like LangChain and Google ADK integrate with LOCO.<br><br>' +
+        '<strong>Step 4 -- Verify release_handle is idempotent.</strong><br>' +
+        '<pre><code>async def test_double_release():\n    agents = [Agent(agent_id="bot")]\n    resource = SharedResource(name="api", capacity=1)\n    scheduler = AsyncLOCOScheduler(agents, resource, optimize_for="balanced")\n    handler = MockCallbackHandler(scheduler)\n\n    await handler.on_start("req-3", "bot")\n    handle = handler._handles["req-3"]\n\n    # Release once (normal)\n    await scheduler.release_handle(handle)\n    print(f"After first release: utilization={resource.utilization}")\n\n    # Release again (idempotent -- no error)\n    await scheduler.release_handle(handle)\n    print(f"After second release: utilization={resource.utilization}")\n    print("Double release is safe -- no error raised")\n\nasyncio.run(test_double_release())</code></pre>' +
+        'The second <code>release_handle()</code> is a no-op. This safety net prevents resource leaks when cleanup code runs twice.<br><br>' +
+        '<strong>Step 5 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'on-release-grant',
@@ -97,7 +129,21 @@ window.COURSE_SECTIONS.push({
         'Assuming _grant_next_waiter scores ALL agents -- it only scores agents that are actually in the waiter queue, not all agents with tasks',
         'Forgetting the lock -- without the asyncio.Lock, concurrent releases cause race conditions in aging and granting'
       ],
-      exercise: 'Read through the <code>_on_release()</code> and <code>_grant_next_waiter()</code> source code. Then write a scenario with 3 agents and 1 resource slot. Trace what happens after each release: which agents\' tasks age, what scores are computed, and who gets granted next. Draw the sequence as a timeline.'
+      exercise: '<strong>This exercise is a guided code reading combined with a hands-on trace.</strong><br><br>' +
+        '<strong>Step 1 -- Read the source code.</strong> Open <code>loco/async_scheduler.py</code> and find <code>_on_release()</code> (around line 430). Read the four operations in order: tick increment, task aging, adaptive tuning, and grant next waiter. Then find <code>_grant_next_waiter()</code> (around line 446) and read how it filters scores to waiting agents only.<br><br>' +
+        '<strong>Step 2 -- Open a Python REPL and set up a trace scenario.</strong><br>' +
+        '<pre><code>python3</code></pre>' +
+        '<pre><code>from loco.testing import SyncTestScheduler, mock_agent\n\n# 3 agents, 1 resource slot (simulated by step-by-step execution)\nagents = [\n    mock_agent("A", pending_tasks=2),  # Qi=2, Dmax starts at 0\n    mock_agent("B", pending_tasks=3),  # Qi=3, Dmax starts at 0\n    mock_agent("C", pending_tasks=1),  # Qi=1, Dmax starts at 0\n]\nscheduler = SyncTestScheduler(agents, alpha=0.25, seed=42)</code></pre>' +
+        '<strong>Step 3 -- Trace each tick manually.</strong> After each step, inspect ages and scores to see the _on_release() effect:<br>' +
+        '<pre><code>for tick in range(1, 7):\n    result = scheduler.step()\n    served = result.selected_agent.agent_id if result.selected_agent else "none"\n    print(f"\\n=== Tick {tick}: served {served} ===")\n    print(f"  Scores: {result.scores}")\n    for aid in ["A", "B", "C"]:\n        agent = scheduler.get_agent(aid)\n        if agent.tasks:\n            ages = [t.age for t in agent.tasks]\n            print(f"  {aid}: {len(agent.tasks)} tasks, ages={ages}, Dmax={agent.dmax}")\n        else:\n            print(f"  {aid}: done")</code></pre>' +
+        '<strong>Step 4 -- Read the output.</strong> Look for these patterns:<br>' +
+        '<ul>' +
+        '<li>After each tick, ALL remaining tasks across ALL agents have their age incremented by 1 -- not just the served agent\\\'s tasks. This is _on_release() aging.</li>' +
+        '<li>Agent C has only 1 task. Its Dmax grows each tick it waits. Even with the smallest queue (Qi=1), C eventually gets served because its Dmax climbs.</li>' +
+        '<li>The scores change every tick because ages change. This is grant-time re-scoring in action.</li>' +
+        '<li>Once an agent\\\'s queue is empty, it disappears from the scores dict entirely.</li>' +
+        '</ul>' +
+        '<strong>Step 5 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     }
   ]
 });

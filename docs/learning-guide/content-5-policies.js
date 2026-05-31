@@ -24,7 +24,17 @@ window.COURSE_SECTIONS.push({
         'Forgetting to set the name class attribute -- the name identifies the policy in logs, error messages, and the PolicyEnforcer. Leaving it as "base" makes debugging hard',
         'Doing side effects in check() -- check should only validate, not modify state. Use record() for state changes after task completion'
       ],
-      exercise: 'Create a custom Policy called <code>BusinessHoursPolicy</code> that only allows tasks between 9am and 5pm. Implement check() to raise PolicyViolationError outside business hours. Test it by creating tasks and checking them at different times.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create a custom Policy subclass.</strong> This policy rejects tasks heavier than a configurable threshold:<br>' +
+        '<pre><code>from loco import Task\nfrom loco.policy import Policy, PolicyViolationError\n\nclass MaxWeightPolicy(Policy):\n    """Reject tasks heavier than a threshold."""\n    name = "max_weight"\n\n    def __init__(self, max_weight=10.0):\n        self.max_weight = max_weight\n\n    def check(self, agent_id, task):\n        if task.weight > self.max_weight:\n            raise PolicyViolationError(\n                self.name, agent_id,\n                f"weight {task.weight} exceeds max {self.max_weight}"\n            )\n        return True\n\npolicy = MaxWeightPolicy(max_weight=5.0)\nprint(f"Policy name: {policy.name}")</code></pre>' +
+        '<strong>Step 3 -- Test the policy with tasks of different weights.</strong><br>' +
+        '<pre><code># Light task -- should pass\nlight = Task(weight=2.0)\nresult = policy.check("agent-1", light)\nprint(f"Light task (weight=2.0): allowed={result}")\n\n# Heavy task -- should be rejected\nheavy = Task(weight=8.0)\ntry:\n    policy.check("agent-1", heavy)\nexcept PolicyViolationError as e:\n    print(f"Heavy task (weight=8.0): REJECTED")\n    print(f"  Policy: {e.policy_name}")\n    print(f"  Agent: {e.agent_id}")\n    print(f"  Detail: {e.detail}")</code></pre>' +
+        'The light task passes. The heavy task raises PolicyViolationError with three pieces of context: which policy, which agent, and why.<br><br>' +
+        '<strong>Step 4 -- Add a record() method for accounting.</strong><br>' +
+        '<pre><code>class CountingPolicy(Policy):\n    """Count how many tasks each agent completes."""\n    name = "counter"\n\n    def __init__(self):\n        self.counts = {}\n\n    def check(self, agent_id, task):\n        return True  # always allow\n\n    def record(self, agent_id, task):\n        self.counts[agent_id] = self.counts.get(agent_id, 0) + 1\n\ncounter = CountingPolicy()\ncounter.record("agent-1", Task(weight=1.0))\ncounter.record("agent-1", Task(weight=2.0))\ncounter.record("agent-2", Task(weight=1.0))\nprint(f"Counts: {counter.counts}")</code></pre>' +
+        'check() runs before the task. record() runs after. check() validates; record() tracks. Keep them separate.<br><br>' +
+        '<strong>Step 5 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'policy-enforcer',
@@ -48,7 +58,20 @@ window.COURSE_SECTIONS.push({
         'Forgetting that policy order matters -- if BudgetPolicy is first and rejects, AccessPolicy never runs. Put the most critical check first',
         'Not wiring the enforcer to the scheduler -- creating a PolicyEnforcer does nothing unless you pass it as enforcer= to AsyncLOCOScheduler'
       ],
-      exercise: 'Create a PolicyEnforcer with two policies: one that always passes and one that always rejects. Wire it to an AsyncLOCOScheduler. Call acquire() and verify that PolicyViolationError is raised. Then swap the order and verify the error comes from the policy that is first in the list.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create two policies: one that passes, one that rejects.</strong><br>' +
+        '<pre><code>from loco import Task\nfrom loco.policy import Policy, PolicyEnforcer, PolicyViolationError\n\nclass AlwaysPass(Policy):\n    name = "always_pass"\n    def check(self, agent_id, task):\n        print(f"  {self.name}: checking {agent_id} -- PASS")\n        return True\n\nclass AlwaysReject(Policy):\n    name = "always_reject"\n    def check(self, agent_id, task):\n        print(f"  {self.name}: checking {agent_id} -- REJECT")\n        raise PolicyViolationError(self.name, agent_id, "always rejected")</code></pre>' +
+        '<strong>Step 3 -- Create an enforcer with pass-first ordering.</strong><br>' +
+        '<pre><code>enforcer = PolicyEnforcer([AlwaysPass(), AlwaysReject()])\ntask = Task(weight=1.0)\n\nprint("Order: pass -> reject")\ntry:\n    passed = enforcer.check_all("agent-1", task)\nexcept PolicyViolationError as e:\n    print(f"  Rejected by: {e.policy_name}")\n    print(f"  Detail: {e.detail}")</code></pre>' +
+        'AlwaysPass runs first and passes. Then AlwaysReject runs and raises. The error comes from "always_reject".<br><br>' +
+        '<strong>Step 4 -- Swap the order and observe short-circuit behavior.</strong><br>' +
+        '<pre><code>enforcer2 = PolicyEnforcer([AlwaysReject(), AlwaysPass()])\n\nprint("\\nOrder: reject -> pass")\ntry:\n    enforcer2.check_all("agent-1", task)\nexcept PolicyViolationError as e:\n    print(f"  Rejected by: {e.policy_name}")</code></pre>' +
+        'AlwaysReject runs first and immediately raises. AlwaysPass never runs -- you should see only one "checking" message. This is short-circuit evaluation. Order matters: put your cheapest/most-likely-to-reject policies first.<br><br>' +
+        '<strong>Step 5 -- Verify record_all runs all policies.</strong><br>' +
+        '<pre><code>class RecordingPolicy(Policy):\n    name = "recorder"\n    def __init__(self):\n        self.recorded = []\n    def check(self, agent_id, task):\n        return True\n    def record(self, agent_id, task):\n        self.recorded.append(agent_id)\n\nr1, r2 = RecordingPolicy(), RecordingPolicy()\nr2.name = "recorder2"\nenforcer3 = PolicyEnforcer([r1, r2])\nenforcer3.check_all("agent-1", task)\nenforcer3.record_all("agent-1", task)\nprint(f"\\nr1 recorded: {r1.recorded}")\nprint(f"r2 recorded: {r2.recorded}")</code></pre>' +
+        'Unlike check_all (which short-circuits), record_all always runs ALL policies. Both recorders should have one entry.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'budget-policy',
@@ -75,7 +98,20 @@ window.COURSE_SECTIONS.push({
         'Not calling reset() periodically -- budgets are cumulative. Without periodic resets, every agent eventually exhausts its budget. Consider resetting daily or per-session',
         'Using BudgetManager directly instead of through PolicyEnforcer -- while the legacy budget= parameter works, the modern approach is PolicyEnforcer([BudgetPolicy(...)]) for composability'
       ],
-      exercise: 'Create a BudgetPolicy with default_limit=10.0. Set a tighter limit for one agent. Submit tasks with different weights and verify that BudgetExceededError is raised when the cumulative weight exceeds the limit. Test all three modes (reject, alert, downgrade) and observe the different behaviors.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create a BudgetPolicy and set limits.</strong><br>' +
+        '<pre><code>from loco import Task, BudgetPolicy, BudgetExceededError\n\nbudget = BudgetPolicy(default_limit=20.0, on_exceeded="reject")\nbudget.set_limit("expensive-agent", max_cost=8.0)\n\nprint(f"Default limit: {budget.get_limit(\\\"any-agent\\\")}")\nprint(f"Expensive limit: {budget.get_limit(\\\"expensive-agent\\\")}")</code></pre>' +
+        '<strong>Step 3 -- Spend budget and watch it drain.</strong><br>' +
+        '<pre><code># Simulate 3 opus calls (weight=5.0 each) for expensive-agent\nfor i in range(3):\n    task = Task(weight=5.0)\n    try:\n        budget.check("expensive-agent", task)\n        budget.record("expensive-agent", task)  # records spend\n        remaining = budget.remaining("expensive-agent")\n        print(f"Call {i+1}: spent={budget.spent(\\\"expensive-agent\\\"):.1f}, "\n              f"remaining={remaining:.1f}")\n    except BudgetExceededError as e:\n        print(f"Call {i+1}: REJECTED -- {e.detail}")</code></pre>' +
+        'The first call succeeds (spent=5, remaining=3). The second call should be rejected because 5+5=10 would exceed the 8.0 limit.<br><br>' +
+        '<strong>Step 4 -- Test "alert" mode (warn but allow).</strong><br>' +
+        '<pre><code>alert_budget = BudgetPolicy(default_limit=5.0, on_exceeded="alert")\n\n# This exceeds the limit but alert mode allows it\ntask = Task(weight=10.0)\ntry:\n    alert_budget.check("agent-1", task)\n    alert_budget.record("agent-1", task)\n    print(f"Alert mode: task allowed despite exceeding budget")\n    print(f"Spent: {alert_budget.spent(\\\"agent-1\\\")}")\n    print(f"Alerts: {alert_budget.alerts}")\nexcept BudgetExceededError:\n    print("This should not happen in alert mode")</code></pre>' +
+        'In alert mode, the task goes through but a warning is logged. Check <code>budget.alerts</code> to see the warning.<br><br>' +
+        '<strong>Step 5 -- Reset and verify.</strong><br>' +
+        '<pre><code>budget.reset("expensive-agent")\nprint(f"After reset: spent={budget.spent(\\\"expensive-agent\\\"):.1f}, "\n      f"remaining={budget.remaining(\\\"expensive-agent\\\"):.1f}")</code></pre>' +
+        'Reset clears the spend counter back to 0. Without periodic resets, every agent eventually exhausts its budget.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'builtin-policies',
@@ -100,7 +136,20 @@ window.COURSE_SECTIONS.push({
         'Setting rate limits too low without considering burst patterns -- the token bucket refills smoothly, so a limit of 10/minute means roughly 1 request every 6 seconds on average, not 10 requests in the first second',
         'Putting expensive policy checks first in the enforcer -- order from cheapest to most expensive for efficiency, since check_all short-circuits'
       ],
-      exercise: 'Create a PolicyEnforcer with all three built-in policies. Write tests that trigger each type of violation: exceed a rate limit, access a restricted label, and exceed a budget. Verify that the correct PolicyViolationError subclass is raised in each case.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create all three built-in policies.</strong><br>' +
+        '<pre><code>from loco import Task, BudgetPolicy, AccessPolicy, RatePolicy\nfrom loco.policy import PolicyEnforcer, PolicyViolationError\nfrom loco import SecurityLabel\n\nrate = RatePolicy(\n    limits={"chatbot": 3.0},  # 3 requests per period\n    period=60.0,\n    default_limit=100.0,      # generous default\n)\n\naccess = AccessPolicy(rules={\n    "intern": {"labels": ["public"]},        # can only handle public\n    "senior": {"labels": ["public", "internal", "confidential"]},\n})\n\nbudget = BudgetPolicy(default_limit=10.0, on_exceeded="reject")\n\n# Order: cheapest check first\nenforcer = PolicyEnforcer([rate, access, budget])\nprint(f"Policies: {[p.name for p in enforcer._policies]}")</code></pre>' +
+        '<strong>Step 3 -- Trigger a rate limit violation.</strong><br>' +
+        '<pre><code># Exhaust the chatbot\\\'s 3-request limit\ntask = Task(weight=1.0)\nfor i in range(4):\n    try:\n        enforcer.check_all("chatbot", task)\n        enforcer.record_all("chatbot", task)\n        print(f"Request {i+1}: allowed")\n    except PolicyViolationError as e:\n        print(f"Request {i+1}: REJECTED by {e.policy_name}")</code></pre>' +
+        'The first 3 requests pass. Request 4 is rejected by the "rate" policy.<br><br>' +
+        '<strong>Step 4 -- Trigger an access policy violation.</strong><br>' +
+        '<pre><code># Intern tries to access confidential data\nconfidential_task = Task(weight=1.0, labels={"data": SecurityLabel.CONFIDENTIAL})\ntry:\n    enforcer.check_all("intern", confidential_task)\nexcept PolicyViolationError as e:\n    print(f"Intern + confidential: REJECTED by {e.policy_name}")\n\n# Senior can access confidential -- should pass\ntry:\n    enforcer.check_all("senior", confidential_task)\n    print("Senior + confidential: allowed")\nexcept PolicyViolationError as e:\n    print(f"Unexpected: {e}")\n\n# Unregistered agent has no rules -- open by default\ntry:\n    enforcer.check_all("random-agent", confidential_task)\n    print("Unregistered agent: allowed (open by default)")\nexcept PolicyViolationError as e:\n    print(f"Unexpected: {e}")</code></pre>' +
+        'AccessPolicy is open by default. Only agents listed in the rules dict are restricted.<br><br>' +
+        '<strong>Step 5 -- Trigger a budget violation.</strong><br>' +
+        '<pre><code># Spend the budget with heavy tasks\nheavy = Task(weight=6.0)\ntry:\n    enforcer.check_all("big-spender", heavy)\n    enforcer.record_all("big-spender", heavy)\n    print(f"First heavy task: allowed (spent={budget.spent(\\\"big-spender\\\")})")\n\n    enforcer.check_all("big-spender", heavy)\n    enforcer.record_all("big-spender", heavy)\nexcept PolicyViolationError as e:\n    print(f"Second heavy task: REJECTED by {e.policy_name}")\n    print(f"  {e.detail}")</code></pre>' +
+        'First task (cost=6) passes. Second would push total to 12, exceeding the 10.0 limit.<br><br>' +
+        '<strong>Step 6 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     }
   ]
 });

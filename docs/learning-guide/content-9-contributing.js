@@ -27,7 +27,26 @@ window.COURSE_SECTIONS.push({
         'Using Python 3.9 or earlier -- LOCO requires 3.10+ for X | Y type unions and other modern syntax',
         'Running tests without a venv -- system Python may have conflicting packages. Always use a virtual environment'
       ],
-      exercise: 'Clone the repo, install, and run <code>pytest</code>. All 389 tests should pass. Then run <code>ruff check .</code> to verify the codebase is clean. Finally, run <code>python examples/burst.py</code> and read the output to see LOCO in action.'
+      exercise: '<strong>Step 1 -- Clone and install.</strong> If you have not already done this from the Foundations section, run:<br>' +
+        '<pre><code>git clone https://github.com/ArielSmoliar/loco-agent.git\ncd loco-agent</code></pre>' +
+        '<strong>Step 2 -- Create a virtual environment and install.</strong><br>' +
+        '<pre><code>python3 -m venv .venv\nsource .venv/bin/activate\npip3 install --upgrade pip\npip3 install -e ".[dev]"</code></pre>' +
+        'The <code>[dev]</code> extra installs pytest, pytest-asyncio, ruff, and numpy. The core library has zero required dependencies.<br><br>' +
+        '<strong>Step 3 -- Run the full test suite.</strong><br>' +
+        '<pre><code>pytest</code></pre>' +
+        'All tests should pass. If any fail, check your Python version (must be 3.10+) and that you installed with <code>[dev]</code>.<br><br>' +
+        '<strong>Step 4 -- Run a specific test file with verbose output.</strong><br>' +
+        '<pre><code>pytest tests/test_scheduler.py -v</code></pre>' +
+        'The <code>-v</code> flag shows each test name and its pass/fail status. Scan the test names to get a feel for what the scheduler tests cover.<br><br>' +
+        '<strong>Step 5 -- Run the linter.</strong><br>' +
+        '<pre><code>ruff check .</code></pre>' +
+        'Should report zero issues. If it finds problems, run <code>ruff check . --fix</code> to auto-fix what it can.<br><br>' +
+        '<strong>Step 6 -- Run the burst example.</strong><br>' +
+        '<pre><code>python3 examples/burst.py</code></pre>' +
+        'Read the output. You should see service order, service counts, and scheduling statistics. This is Scenario 1 -- the simultaneous work arrival test.<br><br>' +
+        '<strong>Step 7 -- Run the fairness example.</strong><br>' +
+        '<pre><code>python3 examples/fairness.py</code></pre>' +
+        'Look at the table of alpha values vs fairness scores. This is Scenario 2 -- the proof that alpha >= 0.75 causes starvation.'
     },
     {
       id: 'adding-adapters',
@@ -51,7 +70,16 @@ window.COURSE_SECTIONS.push({
         'Not recording actual token usage -- empirical tracking improves weight estimates over time. Without it, you rely entirely on static estimates',
         'Storing AcquireHandle in a local variable for callback adapters -- if the callback loses the reference, the resource leaks. Store handles in a dict keyed by request ID'
       ],
-      exercise: 'Create a minimal adapter for a mock API client (one that just returns a fixed response after an asyncio.sleep). Implement the full lifecycle: weight estimation, task submission, acquire, "API call," token recording, dequeue, release. Test it with an AsyncLOCOScheduler and verify metrics are recorded correctly.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create a mock API client.</strong><br>' +
+        '<pre><code>import asyncio\n\nclass MockLLMClient:\n    """Simulates an LLM API that takes a short time to respond."""\n    async def generate(self, model, prompt, **kwargs):\n        await asyncio.sleep(0.05)  # simulate network latency\n        class Response:\n            text = f"Mock response to: {prompt[:30]}"\n            class usage:\n                input_tokens = len(prompt) // 4\n                output_tokens = 50\n                total_tokens = input_tokens + output_tokens\n        return Response()</code></pre>' +
+        '<strong>Step 3 -- Create a minimal adapter implementing the full lifecycle.</strong><br>' +
+        '<pre><code>from loco import AsyncLOCOScheduler, SharedResource, Task\n\nMODEL_WEIGHTS = {"large": 5.0, "medium": 2.0, "small": 1.0}\n\ndef estimate_weight(model, input_tokens=None):\n    base = MODEL_WEIGHTS.get(model, 2.0)\n    if input_tokens and input_tokens > 0:\n        return base * max(input_tokens / 1000, 1.0)\n    return base\n\nclass MockAdapter:\n    def __init__(self, scheduler, client):\n        self.scheduler = scheduler\n        self.client = client\n\n    async def call(self, agent_id, *, model="medium", prompt="", **kwargs):\n        # 1. Estimate weight\n        input_tokens = len(prompt) // 4\n        weight = estimate_weight(model, input_tokens or None)\n        task = Task(weight=weight, task_type=f"mock:{model}")\n\n        # 2. Submit task to scheduler\n        await self.scheduler.submit_task(agent_id, task)\n\n        # 3. Acquire resource and execute\n        async with self.scheduler.acquire(agent_id):\n            response = await self.client.generate(\n                model=model, prompt=prompt, **kwargs\n            )\n\n            # 4. Record actual token usage\n            if hasattr(response, "usage"):\n                self.scheduler.metrics.record_actual_tokens(\n                    agent_id, task, response.usage.total_tokens\n                )\n\n            # 5. Dequeue the served task\n            self.scheduler.get_agent(agent_id).serve_oldest_task()\n\n        # 6. Resource auto-released here\n        return response</code></pre>' +
+        '<strong>Step 4 -- Test the adapter and verify metrics.</strong><br>' +
+        '<pre><code>from loco import Agent\n\nasync def test_adapter():\n    agents = [Agent(agent_id="analyst")]\n    resource = SharedResource(name="mock_api", capacity=2)\n    scheduler = AsyncLOCOScheduler(agents, resource, optimize_for="balanced")\n    adapter = MockAdapter(scheduler, MockLLMClient())\n\n    # Make 3 calls\n    r1 = await adapter.call("analyst", model="large", prompt="Analyze this dataset")\n    r2 = await adapter.call("analyst", model="small", prompt="Hello")\n    r3 = await adapter.call("analyst", model="medium", prompt="Summarize")\n\n    print(f"Response: {r1.text}")\n    print(f"\\nMetrics:")\n    print(f"  Cost by agent: {scheduler.metrics.cost_by_agent()}")\n    print(f"  Total cost: {scheduler.metrics.total_cost()}")\n    print(f"  Completed: {scheduler.metrics.completed_by_agent()}")\n    print(f"  Logical tick: {scheduler.logical_tick}")\n\nasyncio.run(test_adapter())</code></pre>' +
+        'You should see costs accumulated per agent and 3 completed tasks. The adapter handled the full lifecycle: weight estimation, submit, acquire, API call, token recording, dequeue, release.<br><br>' +
+        '<strong>Step 5 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'adding-policies',
@@ -74,7 +102,17 @@ window.COURSE_SECTIONS.push({
         'Not raising PolicyViolationError -- returning False silently may be swallowed. Raise the error with context (policy name, agent, detail) for proper error handling',
         'Duplicate policy names -- PolicyEnforcer uses names for lookup. Two policies named "budget" will confuse remove_policy() and get_policy()'
       ],
-      exercise: 'Create a <code>TimeOfDayPolicy</code> that restricts expensive tasks (weight > 3.0) to off-peak hours (8pm-6am). Allow cheap tasks anytime. Wire it into a PolicyEnforcer and test that expensive tasks during peak hours raise PolicyViolationError while cheap tasks always pass.'
+      exercise: '<strong>Step 1 -- Open a Python REPL.</strong> Make sure you are in the <code>loco-agent</code> directory with the virtual environment activated:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<strong>Step 2 -- Create a custom TimeOfDayPolicy.</strong><br>' +
+        '<pre><code>from datetime import datetime\nfrom loco import Task\nfrom loco.policy import Policy, PolicyEnforcer, PolicyViolationError\n\nclass TimeOfDayPolicy(Policy):\n    """Restrict expensive tasks to off-peak hours."""\n    name = "time_of_day"\n\n    def __init__(self, peak_start=9, peak_end=17, max_peak_weight=3.0):\n        self.peak_start = peak_start\n        self.peak_end = peak_end\n        self.max_peak_weight = max_peak_weight\n\n    def is_peak_hour(self):\n        hour = datetime.now().hour\n        return self.peak_start <= hour < self.peak_end\n\n    def check(self, agent_id, task):\n        if self.is_peak_hour() and task.weight > self.max_peak_weight:\n            raise PolicyViolationError(\n                self.name, agent_id,\n                f"weight {task.weight} exceeds peak-hour max {self.max_peak_weight} "\n                f"(peak hours: {self.peak_start}:00-{self.peak_end}:00)"\n            )\n        return True\n\npolicy = TimeOfDayPolicy()\nprint(f"Current hour: {datetime.now().hour}")\nprint(f"Is peak hour: {policy.is_peak_hour()}")</code></pre>' +
+        '<strong>Step 3 -- Test the policy.</strong><br>' +
+        '<pre><code># Cheap task -- always allowed regardless of time\ncheap = Task(weight=1.0)\ntry:\n    policy.check("agent-1", cheap)\n    print(f"Cheap task (weight=1.0): allowed")\nexcept PolicyViolationError as e:\n    print(f"Cheap task: rejected (unexpected)")\n\n# Expensive task -- depends on time of day\nexpensive = Task(weight=5.0)\ntry:\n    policy.check("agent-1", expensive)\n    print(f"Expensive task (weight=5.0): allowed (off-peak or non-peak hour)")\nexcept PolicyViolationError as e:\n    print(f"Expensive task (weight=5.0): REJECTED")\n    print(f"  {e.detail}")</code></pre>' +
+        'If you are running this during business hours (9am-5pm), the expensive task should be rejected. Outside those hours, it passes.<br><br>' +
+        '<strong>Step 4 -- Wire it into a PolicyEnforcer with other policies.</strong><br>' +
+        '<pre><code>from loco import BudgetPolicy\n\nenforcer = PolicyEnforcer([\n    TimeOfDayPolicy(peak_start=9, peak_end=17, max_peak_weight=3.0),\n    BudgetPolicy(default_limit=50.0, on_exceeded="reject"),\n])\n\n# Test with a cheap task (should always pass both policies)\ncheap = Task(weight=1.0)\ntry:\n    passed = enforcer.check_all("agent-1", cheap)\n    print(f"Cheap task passed: {passed}")\nexcept PolicyViolationError as e:\n    print(f"Rejected by: {e.policy_name}")</code></pre>' +
+        'The enforcer runs TimeOfDayPolicy first (cheapest check), then BudgetPolicy. If time-of-day rejects, the budget is never checked -- short-circuit evaluation.<br><br>' +
+        '<strong>Step 5 -- Exit the REPL.</strong> Type <code>exit()</code> or press Ctrl+D.'
     },
     {
       id: 'key-files-reference',
@@ -107,7 +145,32 @@ window.COURSE_SECTIONS.push({
         'Adding framework-specific logic to the core -- adapters exist to keep framework dependencies out of the core. Never import anthropic, openai, etc. in scheduler.py or async_scheduler.py',
         'Contributing without running the full test suite -- always run pytest before submitting. The 389 tests are fast and catch regressions'
       ],
-      exercise: 'Pick a contribution type from the table above that interests you. Read the corresponding source file(s) from top to bottom. Then find the matching test file in tests/ and read 3-5 tests to understand how the code is validated. Finally, identify one small improvement or new test you could add.'
+      exercise: '<strong>This exercise is a guided exploration of the codebase.</strong><br><br>' +
+        '<strong>Step 1 -- Pick a contribution area.</strong> Choose one from the table that interests you:<br>' +
+        '<ul>' +
+        '<li><strong>Core algorithm:</strong> <code>loco/scheduler.py</code> + <code>tests/test_scheduler.py</code></li>' +
+        '<li><strong>Async scheduling:</strong> <code>loco/async_scheduler.py</code> + <code>tests/test_async_scheduler.py</code></li>' +
+        '<li><strong>Policies:</strong> <code>loco/policy.py</code> + <code>tests/test_policy.py</code></li>' +
+        '<li><strong>Adapters:</strong> <code>loco/adapters/anthropic.py</code> + <code>tests/test_adapters.py</code></li>' +
+        '<li><strong>Metrics:</strong> <code>loco/metrics.py</code> + <code>tests/test_metrics.py</code></li>' +
+        '</ul>' +
+        '<strong>Step 2 -- Read the source file top to bottom.</strong> Note the class hierarchy, public methods, and internal helpers. Pay attention to docstrings and type hints -- they describe the contract each method promises.<br><br>' +
+        '<strong>Step 3 -- Read 3-5 tests for that module.</strong> Run the specific test file with verbose output:<br>' +
+        '<pre><code># Replace with your chosen test file:\npytest tests/test_scheduler.py -v --tb=short 2>&1 | head -40</code></pre>' +
+        'Read the test names to understand what behaviors are validated. Good test names describe the expected behavior: <code>test_alpha_025_score_ordering</code> tells you exactly what it checks.<br><br>' +
+        '<strong>Step 4 -- Identify one improvement.</strong> As you read, look for:<br>' +
+        '<ul>' +
+        '<li>A missing edge case test (e.g., empty input, single agent, all-tied scores)</li>' +
+        '<li>A docstring that could be clearer</li>' +
+        '<li>A test that does not include a hand-calculated expected value</li>' +
+        '</ul>' +
+        '<strong>Step 5 -- Write one new test.</strong> Open a Python REPL and draft it:<br>' +
+        '<pre><code>python3</code></pre>' +
+        '<pre><code>from loco.testing import SyncTestScheduler, mock_agent\n\ndef test_your_improvement():\n    """Describe what this test verifies and why."""\n    # Setup: create agents with specific properties\n    agents = [mock_agent("a", pending_tasks=5)]\n    scheduler = SyncTestScheduler(agents, alpha=0.25, seed=42)\n\n    # Act: run the scenario\n    result = scheduler.run_all()\n\n    # Assert: verify the expected behavior\n    assert result.total_ticks == 5\n    assert result.service_counts["a"] == 5\n    print("Your new test passes!")\n\ntest_your_improvement()</code></pre>' +
+        'Modify this template for your specific improvement. When it passes in the REPL, save it to the appropriate test file.<br><br>' +
+        '<strong>Step 6 -- Run the full suite to check for regressions.</strong><br>' +
+        '<pre><code>exit()  # leave the REPL\npytest</code></pre>' +
+        'All existing tests plus your new one should pass.'
     }
   ]
 });
