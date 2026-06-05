@@ -15,7 +15,7 @@
   <a href="https://pypi.org/project/loco-agent/"><img src="https://img.shields.io/pypi/v/loco-agent?color=e65100&label=PyPI" alt="PyPI"></a>
   <a href="https://pypi.org/project/loco-agent/"><img src="https://img.shields.io/pypi/pyversions/loco-agent?color=1565c0" alt="Python"></a>
   <a href="https://github.com/ArielSmoliar/loco-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-2e7d32" alt="License"></a>
-  <img src="https://img.shields.io/badge/tests-389%20passed-2e7d32" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-399%20passed-2e7d32" alt="Tests">
   <img src="https://img.shields.io/badge/adapters-7%20frameworks-1565c0" alt="Adapters">
 </p>
 
@@ -497,7 +497,7 @@ graph TD
 - SecurityLabel enum on tasks (public/internal/confidential)
 - Static Plan/Step DAG with topological sort and cycle detection
 - SLO error budgets (healthy/warning/critical/exhausted state machine)
-- 389 tests
+- 399 tests
 
 ### v0.4 -- Enterprise Cost Dashboard (next)
 - [ ] Prometheus / OTEL exporter
@@ -520,7 +520,7 @@ git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest   # 389 tests
+pytest   # 399 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.

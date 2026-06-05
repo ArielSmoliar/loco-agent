@@ -35,63 +35,23 @@ Framework adapters, cost tracking, convenience API, PyPI distribution.
 - **Demos:** loco-adk-demo (live Gemini), loco-autogen-demo (AutoGen security pipeline)
 - 289 tests across 17 test files
 
+### v0.3 -- Cost Governance + Policy Engine (June 2026)
+
+The positioning pivot: cost governance is the product surface, the scheduler is the engine.
+
+- **PolicyEnforcer:** Unified enforcement layer at dispatch point with composable policies
+- **BudgetPolicy:** BudgetManager refactored as a policy type (backward-compatible alias kept)
+- **AccessPolicy:** Label-based access control per agent (open by default, restrict explicitly)
+- **RatePolicy:** Token bucket rate limiter per agent
+- **Static Plan/Step DAG:** Topological sort, cycle detection, dependency tracking
+- **SecurityLabel:** Task metadata (`public`/`internal`/`confidential`), logged in scheduling events
+- **SLO error budgets:** State machine (HEALTHY -> WARNING -> CRITICAL -> EXHAUSTED) with rolling window
+- **Delegation audit records:** Every grant emits structured policy evaluation record
+- 399 tests across 22 test files
+
 ---
 
 ## In Progress
-
-### v0.3 -- Cost Governance + Policy Engine (June-July 2026)
-
-> The positioning pivot: cost governance is the product surface, the scheduler is the engine.
-> Enterprises ask "who's spending the budget?" before "who goes next?"
-
-Generalizes BudgetManager into a policy framework. Adds static execution plans (validated by
-Anthropic's dynamic workflows -- they generate JS orchestration scripts, proving plan-as-code
-works at scale). Adds security metadata to task envelopes (NVIDIA secure agent architecture).
-
-**Why this order:** The CIO dinner signal (Levie, 5/19) says token costs are the #1 enterprise
-concern. Microsoft AGT ships policy enforcement without scheduling. LOCO ships scheduling without
-policy enforcement. v0.3 closes the gap -- cost governance + policy in one dispatch decision.
-
-| Feature | What it is | Source |
-|---------|------------|--------|
-| **PolicyEnforcer** | Unified enforcement layer at dispatch point. Evaluates policies before granting resource access. Replaces `budget=` parameter (backward-compatible). | NVIDIA arXiv:2603.50016 |
-| **BudgetPolicy** | BudgetManager refactored as a policy type. Same behavior, composable with other policies. Migration: `BudgetManager` stays as public alias. | Existing BudgetManager |
-| **AccessPolicy** | Which tools/resources each agent can use. Static rules evaluated at dispatch. | NVIDIA "static access-control rules" |
-| **RatePolicy** | Per-agent request rate limits (e.g., max 10 acquires/minute). | Enterprise request pattern |
-| **Static Plan** | Immutable execution DAG submitted with a task batch. Steps with dependencies. Audit-friendly -- "what was the plan when this ran?" is always answerable. | Anthropic dynamic workflows (validation), NVIDIA Position 1 |
-| **SecurityLabel** | Optional metadata on task inputs/outputs (`public`/`internal`/`confidential`). Logged in scheduling events. Flow enforcement deferred to v0.5. | NVIDIA IFC labels |
-| **Delegation audit records** | Every grant emits structured record: who requested, what was dispatched, why this routing, what it cost. | O'Reilly delegation problem (Prakash) |
-| **SLO error budgets** | State machine (HEALTHY -> WARNING -> CRITICAL -> EXHAUSTED) with burn-rate alerting. Replaces binary reject/alert/downgrade. | Microsoft AGT |
-
-**API sketch:**
-
-```python
-from loco import Plan, Step, PolicyEnforcer, BudgetPolicy, AccessPolicy
-
-plan = Plan(steps=[
-    Step("fetch", agent="reader"),
-    Step("analyze", agent="analyst", depends_on=["fetch"]),
-    Step("respond", agent="writer", depends_on=["analyze"]),
-])
-
-enforcer = PolicyEnforcer(policies=[
-    BudgetPolicy(limits={"analyst": 50.0, "writer": 20.0}),
-    AccessPolicy(rules={"reader": {"resources": ["email_api"]}}),
-])
-
-scheduler = AsyncLOCOScheduler(
-    agents=agents, resource=resource,
-    plan=plan, enforcer=enforcer,
-)
-```
-
-**Migration path:** `BudgetManager` stays as alias. `budget=` parameter continues to work
-(internally wraps in PolicyEnforcer). Deprecation warning on `budget=` in v0.5.
-
-**Stretch goal:** Security-aware feedback middleware (validate tool results through structured
-checks before the orchestrator sees raw text -- blocks indirect prompt injection vector).
-
----
 
 ### v0.4 -- Enterprise Cost Dashboard + Observability (August-September 2026)
 
