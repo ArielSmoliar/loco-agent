@@ -50,6 +50,14 @@ Works with LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS 
 - **Token-to-outcome tracking** -- link token spend to task outcomes for ROI attribution
 - **Grafana dashboard** -- pre-built template for LOCO scheduling metrics
 
+## Dashboard
+
+<p align="center">
+  <img src="docs/assets/grafana-dashboard.png" alt="LOCO-Agent Grafana Dashboard" width="100%"/>
+</p>
+
+<p align="center"><em>LOCO-Agent scheduling dashboard -- cost by agent, wait time percentiles, queue depth, resource utilization, trust scores, and policy violations. Ships as an importable Grafana JSON template.</em></p>
+
 ## Install
 
 ```bash
