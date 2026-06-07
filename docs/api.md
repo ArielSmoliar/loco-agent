@@ -86,6 +86,7 @@ scheduler = AsyncLOCOScheduler(
     auto_tune=True,
     budget=BudgetPolicy(on_exceeded="reject"),  # v0.2 compat
     enforcer=PolicyEnforcer([...]),       # v0.3 policy composition
+    trust_scorer=scorer,                  # v0.4 trust scoring
 )
 ```
 
@@ -112,6 +113,7 @@ scheduler = AsyncLOCOScheduler(
 | `resource` | `SharedResource` | The shared resource |
 | `metrics` | `SchedulerMetrics` | Cost and fairness metrics |
 | `budget` | `BudgetManager | None` | Budget manager (if configured) |
+| `trust_scorer` | `TrustScorer | None` | Trust scorer (if configured) |
 
 ---
 
@@ -135,6 +137,9 @@ task_with_labels = Task(
 | `task_id` | `str` | auto | Unique identifier |
 | `labels` | `dict[str, SecurityLabel] \| None` | `None` | Security labels for task data |
 | `session_id` | `str \| None` | `None` | Session/workflow ID for cost attribution |
+| `team` | `str \| None` | `None` | Team name for cost rollup |
+| `workflow` | `str \| None` | `None` | Workflow name for cost rollup |
+| `model` | `str \| None` | `None` | Model identifier for cost rollup |
 
 ---
 
@@ -321,6 +326,110 @@ See [SLO Error Budgets](concepts/slo.md) for details.
 
 ---
 
+## Prometheus Exporter (v0.4)
+
+```python
+from loco.exporters.prometheus import PrometheusExporter
+
+exporter = PrometheusExporter(scheduler)
+exporter.start(port=9090)
+exporter.snapshot()  # dict of current metric values
+exporter.stop()
+
+# Or via convenience API:
+import loco
+loco.configure(capacity=3)
+loco.enable_prometheus(port=9090)
+```
+
+Requires: `pip install loco-agent[prometheus]`
+
+---
+
+## CostAttribution (v0.4)
+
+```python
+# Accessed via scheduler.metrics.attribution
+scheduler.metrics.attribution.cost_by_team()        # {"marketing": 47.5}
+scheduler.metrics.attribution.cost_by_workflow()     # {"weekly-report": 31.2}
+scheduler.metrics.attribution.cost_by_model()        # {"claude-opus-4": 68.0}
+scheduler.metrics.attribution.team_breakdown("eng")  # by_agent, by_model, by_workflow
+scheduler.metrics.attribution.top_costs("model", n=5)
+scheduler.metrics.attribution.summary()
+```
+
+Task attribution fields:
+
+| Field | Type | Description |
+|-------|------|------------|
+| `team` | `str \| None` | Team name for cost rollup |
+| `workflow` | `str \| None` | Workflow name for cost rollup |
+| `model` | `str \| None` | Model identifier for cost rollup |
+
+---
+
+## TrustScorer (v0.4)
+
+```python
+from loco import TrustScorer
+
+scorer = TrustScorer(slo_target=20.0, decay_half_life=3600.0)
+scorer.record_success("agent_a", wait_ticks=3)
+scorer.record_error("agent_a")
+scorer.record_timeout("agent_a")
+scorer.score("agent_a")              # 0-1000
+scorer.priority_multiplier("agent_a") # 0.8-1.2
+scorer.stats("agent_a")              # detailed breakdown
+scorer.scores()                      # all agents
+
+# Wire into scheduler
+scheduler = AsyncLOCOScheduler(..., trust_scorer=scorer)
+```
+
+Score signals: success (+15), fast completion bonus (+10), SLO violation (-25), error (-50), timeout (-80). Scores decay toward 500 (baseline) over time.
+
+---
+
+## MultiTenantScheduler (v0.4)
+
+```python
+from loco import MultiTenantScheduler
+from loco.resource import SharedResource
+
+mt = MultiTenantScheduler(resource=SharedResource("llm", capacity=10))
+mt.register_tenant("acme", max_agents=20, cost_ceiling=500.0)
+mt.register_agent("acme", Agent(agent_id="acme_analyst"))
+await mt.submit_task("acme", "acme_analyst", task)
+async with mt.acquire("acme", "acme_analyst"):
+    await do_work()
+
+mt.tenant_stats("acme")    # cost, agents, ceiling, remaining
+mt.tenant_cost("acme")     # cumulative cost
+mt.all_tenants()           # stats for all tenants
+```
+
+| Exception | When |
+|-----------|------|
+| `TenantCostExceededError` | Task would exceed tenant cost ceiling |
+| `TenantLimitError` | Tenant has reached max_agents |
+
+---
+
+## OutcomeTracker (v0.4)
+
+```python
+# Accessed via scheduler.metrics.outcomes
+scheduler.metrics.outcomes.record("agent_a", task, "success", quality_score=0.92)
+scheduler.metrics.outcomes.outcome_rates()       # {"success": 0.85, "failure": 0.15}
+scheduler.metrics.outcomes.cost_per_outcome("success")
+scheduler.metrics.outcomes.quality_by_model()    # {"opus": 0.95, "sonnet": 0.75}
+scheduler.metrics.outcomes.roi_by_agent()        # cost-effectiveness per agent
+scheduler.metrics.outcomes.roi_by_model()        # cost-effectiveness per model
+scheduler.metrics.outcomes.summary()
+```
+
+---
+
 ## Exceptions
 
 | Exception | When |
@@ -330,6 +439,8 @@ See [SLO Error Budgets](concepts/slo.md) for details.
 | `PolicyViolationError` | `acquire()` when any policy rejects |
 | `BudgetExceededError` | `acquire()` when budget exceeded (subclass of PolicyViolationError) |
 | `TimeoutError` | `acquire(timeout=N)` when timeout expires |
+| `TenantCostExceededError` | Task would exceed tenant cost ceiling |
+| `TenantLimitError` | Tenant has reached max_agents |
 
 ---
 

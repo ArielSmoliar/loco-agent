@@ -15,7 +15,7 @@
   <a href="https://pypi.org/project/loco-agent/"><img src="https://img.shields.io/pypi/v/loco-agent?color=e65100&label=PyPI" alt="PyPI"></a>
   <a href="https://pypi.org/project/loco-agent/"><img src="https://img.shields.io/pypi/pyversions/loco-agent?color=1565c0" alt="Python"></a>
   <a href="https://github.com/ArielSmoliar/loco-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-2e7d32" alt="License"></a>
-  <img src="https://img.shields.io/badge/tests-399%20passed-2e7d32" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-486%20passed-2e7d32" alt="Tests">
   <img src="https://img.shields.io/badge/adapters-7%20frameworks-1565c0" alt="Adapters">
 </p>
 
@@ -43,6 +43,12 @@ Works with LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS 
 - **Multi-resource** -- deadlock-safe scheduling across multiple resources (LLM + DB + GPU)
 - **A2A protocol** -- registers as a first-class agent-to-agent participant
 - **Framework-agnostic** -- a LangChain agent and an ADK agent are indistinguishable to the scheduler
+- **Prometheus export** -- `loco.enable_prometheus(port=9090)` for standard observability stacks
+- **Cost attribution** -- per-team, per-workflow, per-model cost breakdowns
+- **Trust scoring** -- 0-1000 behavioral score per agent, auto-adjusts scheduling priority
+- **Multi-tenant isolation** -- per-tenant agent pools with independent cost ceilings
+- **Token-to-outcome tracking** -- link token spend to task outcomes for ROI attribution
+- **Grafana dashboard** -- pre-built template for LOCO scheduling metrics
 
 ## Install
 
@@ -499,13 +505,14 @@ graph TD
 - SLO error budgets (healthy/warning/critical/exhausted state machine)
 - 399 tests
 
-### v0.4 -- Enterprise Cost Dashboard (next)
-- [ ] Prometheus / OTEL exporter
-- [ ] Cost attribution (per-team, per-workflow, per-model)
-- [ ] Token-to-outcome tracking
-- [ ] Trust scoring (agent behavioral score)
-- [ ] Multi-tenant isolation
-- [ ] Grafana template
+### v0.4 -- Enterprise Observability (shipped June 2026)
+- Prometheus / OTEL exporter
+- Cost attribution (per-team, per-workflow, per-model)
+- Token-to-outcome tracking
+- Trust scoring (0-1000 behavioral score per agent)
+- Multi-tenant isolation with independent cost ceilings
+- Grafana dashboard template
+- 486 tests
 
 ### v0.5+ -- Dynamic Plans, Cross-Provider Routing, LOCO Cloud
 
@@ -520,7 +527,7 @@ git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest   # 399 tests
+pytest   # 486 tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.

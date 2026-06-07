@@ -44,6 +44,7 @@ from loco.policy import PolicyEnforcer, PolicyViolationError
 from loco.resource import SharedResource
 from loco.scheduler import LOCOScheduler
 from loco.task import Task
+from loco.trust import TrustScorer
 
 
 class BackpressureError(Exception):
@@ -94,6 +95,7 @@ class AsyncLOCOScheduler:
         auto_tune: bool = False,
         budget: BudgetManager | None = None,
         enforcer: PolicyEnforcer | None = None,
+        trust_scorer: TrustScorer | None = None,
     ) -> None:
         self.resource = resource
         self.max_waiters = max_waiters
@@ -121,6 +123,7 @@ class AsyncLOCOScheduler:
         self.metrics = SchedulerMetrics(self)
         self.on_task_started = on_task_started
         self.on_task_completed = on_task_completed
+        self.trust_scorer = trust_scorer
         self._tuner: AdaptiveAlphaTuner | None = (
             AdaptiveAlphaTuner(self) if auto_tune else None
         )
@@ -287,13 +290,23 @@ class AsyncLOCOScheduler:
             self.on_task_started(agent_id, serving_task)
 
         # Resource is held -- yield to caller
+        _task_error = False
         try:
             async with self.resource.held_by(agent_id):
                 yield
+        except Exception:
+            _task_error = True
+            raise
         finally:
             # Record completion to all policies
             if self._enforcer and serving_task:
                 self._enforcer.record_all(agent_id, serving_task)
+            # Record trust signals
+            if self.trust_scorer and serving_task:
+                if _task_error:
+                    self.trust_scorer.record_error(agent_id)
+                else:
+                    self.trust_scorer.record_success(agent_id, wait_ticks=serving_task.age)
             # Fire completion hook + logging
             if serving_task:
                 loco_log.emit_release(
@@ -455,6 +468,13 @@ class AsyncLOCOScheduler:
 
         if not waiter_scores:
             return
+
+        # Apply trust multiplier if trust scoring is enabled
+        if self.trust_scorer:
+            waiter_scores = {
+                aid: s * self.trust_scorer.priority_multiplier(aid)
+                for aid, s in waiter_scores.items()
+            }
 
         # Grant to highest scorer
         best_id = max(waiter_scores, key=waiter_scores.get)

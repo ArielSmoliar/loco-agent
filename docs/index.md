@@ -88,3 +88,21 @@ Run `loco doctor` to detect your installed frameworks and get integration code.
 - [Execution Plans](concepts/plans.md) -- DAG-based task orchestration
 - [API Reference](api.md) -- every class, method, and parameter
 - [Adapters](adapters/index.md) -- framework-specific integration guides
+
+## Observability (v0.4)
+
+```python
+# Prometheus metrics export
+loco.enable_prometheus(port=9090)
+
+# Cost attribution
+task = Task(weight=5.0, team="marketing", workflow="report", model="claude-opus-4")
+scheduler.metrics.attribution.cost_by_team()
+scheduler.metrics.attribution.team_breakdown("marketing")
+
+# Trust scoring
+from loco import TrustScorer
+scorer = TrustScorer(slo_target=20.0)
+scheduler = AsyncLOCOScheduler(..., trust_scorer=scorer)
+scorer.score("analyst")  # 0-1000
+```

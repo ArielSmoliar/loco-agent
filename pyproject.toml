@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "loco-agent"
-version = "0.3.0"
+version = "0.4.0"
 description = "Load-aware scheduling layer for multi-agent systems"
 readme = "README.md"
 license = "AGPL-3.0-only"
@@ -36,10 +36,12 @@ dev = [
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
     "numpy>=1.24",
+    "prometheus_client>=0.20",
 ]
 anthropic = ["anthropic>=0.40"]
 openai = ["openai>=1.50"]
-all = ["loco-agent[anthropic,openai]"]
+prometheus = ["prometheus_client>=0.20"]
+all = ["loco-agent[anthropic,openai,prometheus]"]
 
 [project.urls]
 Homepage = "https://github.com/ArielSmoliar/loco-agent"

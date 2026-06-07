@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOCO-Agent -- Grafana Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #111217;
+    color: #d8d9da;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+  }
+
+  /* Top nav */
+  .topnav {
+    background: #1a1b21;
+    border-bottom: 1px solid #2c2d33;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .topnav .logo {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #ff6600, #f5af19);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: #fff;
+  }
+  .topnav .breadcrumb {
+    color: #8e8fa0;
+    font-size: 13px;
+  }
+  .topnav .breadcrumb span { color: #d8d9da; }
+  .topnav .time-range {
+    margin-left: auto;
+    background: #2c2d33;
+    border: 1px solid #3d3e48;
+    border-radius: 4px;
+    padding: 4px 10px;
+    color: #d8d9da;
+    font-size: 12px;
+  }
+  .topnav .refresh {
+    background: #2c2d33;
+    border: 1px solid #3d3e48;
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: #8e8fa0;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  /* Dashboard title */
+  .dash-header {
+    padding: 16px 16px 8px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .dash-header h1 {
+    font-size: 22px;
+    font-weight: 500;
+    color: #eeeff0;
+  }
+  .dash-header .tag {
+    font-size: 11px;
+    background: #2a4a2a;
+    color: #73bf69;
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+
+  /* Grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 8px 16px;
+  }
+  .grid.two-col {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .grid.three-col {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  /* Panel */
+  .panel {
+    background: #1a1b21;
+    border: 1px solid #2c2d33;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #c7c8cd;
+    border-bottom: 1px solid #2c2d33;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-header .info {
+    color: #5c5d6e;
+    font-size: 11px;
+  }
+  .panel-body {
+    padding: 12px;
+    min-height: 180px;
+    position: relative;
+  }
+
+  /* Stat panels */
+  .stat-value {
+    font-size: 42px;
+    font-weight: 300;
+    text-align: center;
+    padding-top: 20px;
+    line-height: 1;
+  }
+  .stat-value.green { color: #73bf69; }
+  .stat-value.blue { color: #5794f2; }
+  .stat-value.orange { color: #ff9830; }
+  .stat-value.purple { color: #b877d9; }
+  .stat-label {
+    text-align: center;
+    color: #8e8fa0;
+    font-size: 12px;
+    margin-top: 8px;
+  }
+  .stat-spark {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 40px;
+  }
+
+  /* SVG charts */
+  svg { width: 100%; height: 100%; }
+  .grid-line { stroke: #2c2d33; stroke-width: 0.5; }
+  .axis-label { fill: #5c5d6e; font-size: 10px; font-family: inherit; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 16px;
+    padding: 6px 12px;
+    border-top: 1px solid #2c2d33;
+    font-size: 11px;
+    color: #8e8fa0;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .legend-dot {
+    width: 8px; height: 3px;
+    border-radius: 1px;
+  }
+
+  /* Table */
+  .table-panel { min-height: auto; padding: 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  th {
+    text-align: left;
+    padding: 8px 12px;
+    color: #5794f2;
+    font-weight: 500;
+    border-bottom: 1px solid #2c2d33;
+    background: #16171c;
+  }
+  td {
+    padding: 6px 12px;
+    border-bottom: 1px solid #1f2028;
+  }
+  tr:hover td { background: #1f2028; }
+  .bar-cell {
+    position: relative;
+  }
+  .bar-bg {
+    position: absolute;
+    left: 12px; top: 4px; bottom: 4px;
+    border-radius: 2px;
+    opacity: 0.25;
+  }
+  .bar-value {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Section label */
+  .section-label {
+    padding: 16px 16px 4px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #8e8fa0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* Alert banner */
+  .alert-bar {
+    margin: 8px 16px;
+    background: #2d1f1f;
+    border: 1px solid #5c2626;
+    border-radius: 4px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+  .alert-bar .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #f2495c;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .alert-bar .text { color: #f2495c; }
+  .alert-bar .detail { color: #8e8fa0; margin-left: auto; }
+</style>
+</head>
+<body>
+
+<!-- Top Navigation -->
+<div class="topnav">
+  <div class="logo">G</div>
+  <div class="breadcrumb">Dashboards / <span>LOCO-Agent</span></div>
+  <div class="time-range">&#128339; Last 1 hour</div>
+  <div class="refresh">&#8635; 10s</div>
+</div>
+
+<!-- Dashboard Title -->
+<div class="dash-header">
+  <h1>LOCO-Agent Scheduling Dashboard</h1>
+  <span class="tag">v0.4</span>
+</div>
+
+<!-- Alert -->
+<div class="alert-bar">
+  <div class="dot"></div>
+  <span class="text">FIRING</span>
+  <span>agent "batch_etl" budget at 94% ($47.12 / $50.00)</span>
+  <span class="detail">triggered 3m ago</span>
+</div>
+
+<!-- Row 1: Key Stats -->
+<div class="section-label">Overview</div>
+<div class="grid">
+  <!-- Total Cost -->
+  <div class="panel">
+    <div class="panel-header">Total Cost (1h) <span class="info">loco_agent_cost_total</span></div>
+    <div class="panel-body">
+      <div class="stat-value orange">$127.43</div>
+      <div class="stat-label">+$18.20 vs previous hour</div>
+      <svg class="stat-spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+        <polyline points="0,35 15,32 30,28 45,30 60,25 75,22 90,20 105,18 120,22 135,15 150,12 165,10 180,8 200,5"
+          fill="none" stroke="#ff9830" stroke-width="1.5" opacity="0.6"/>
+        <polyline points="0,35 15,32 30,28 45,30 60,25 75,22 90,20 105,18 120,22 135,15 150,12 165,10 180,8 200,5 200,40 0,40"
+          fill="url(#orangeGrad)" opacity="0.15"/>
+        <defs><linearGradient id="orangeGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ff9830"/><stop offset="100%" stop-color="#ff9830" stop-opacity="0"/></linearGradient></defs>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Tasks Completed -->
+  <div class="panel">
+    <div class="panel-header">Tasks Completed (1h) <span class="info">loco_agent_tasks_completed_total</span></div>
+    <div class="panel-body">
+      <div class="stat-value blue">1,847</div>
+      <div class="stat-label">30.8 tasks/min avg</div>
+      <svg class="stat-spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+        <polyline points="0,30 15,28 30,25 45,22 60,26 75,20 90,18 105,22 120,15 135,18 150,12 165,10 180,14 200,8"
+          fill="none" stroke="#5794f2" stroke-width="1.5" opacity="0.6"/>
+        <polyline points="0,30 15,28 30,25 45,22 60,26 75,20 90,18 105,22 120,15 135,18 150,12 165,10 180,14 200,8 200,40 0,40"
+          fill="url(#blueGrad)" opacity="0.15"/>
+        <defs><linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5794f2"/><stop offset="100%" stop-color="#5794f2" stop-opacity="0"/></linearGradient></defs>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Resource Utilization -->
+  <div class="panel">
+    <div class="panel-header">Resource Utilization <span class="info">loco_agent_resource_utilization_ratio</span></div>
+    <div class="panel-body">
+      <div class="stat-value green">78%</div>
+      <div class="stat-label">3 of 4 slots occupied</div>
+      <svg class="stat-spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+        <polyline points="0,20 15,18 30,15 45,10 60,8 75,12 90,6 105,10 120,8 135,5 150,8 165,6 180,10 200,8"
+          fill="none" stroke="#73bf69" stroke-width="1.5" opacity="0.6"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Alpha -->
+  <div class="panel">
+    <div class="panel-header">Alpha (schedule bias) <span class="info">loco_agent_alpha</span></div>
+    <div class="panel-body">
+      <div class="stat-value purple">0.25</div>
+      <div class="stat-label">balanced -- auto-tuner active</div>
+      <svg class="stat-spark" viewBox="0 0 200 40" preserveAspectRatio="none">
+        <polyline points="0,18 15,18 30,17 45,18 60,16 75,15 90,16 105,14 120,15 135,14 150,15 165,16 180,15 200,14"
+          fill="none" stroke="#b877d9" stroke-width="1.5" opacity="0.6"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- Row 2: Time-series panels -->
+<div class="section-label">Cost & Throughput</div>
+<div class="grid two-col">
+  <!-- Cost per Agent over time -->
+  <div class="panel">
+    <div class="panel-header">Cost by Agent (cumulative) <span class="info">rate(loco_agent_cost_total[5m])</span></div>
+    <div class="panel-body" style="min-height:220px; padding:8px 4px 4px 4px;">
+      <svg viewBox="0 0 500 200" preserveAspectRatio="none">
+        <!-- Grid -->
+        <line x1="40" y1="10" x2="40" y2="180" class="grid-line"/>
+        <line x1="40" y1="180" x2="490" y2="180" class="grid-line"/>
+        <line x1="40" y1="138" x2="490" y2="138" class="grid-line" opacity="0.3"/>
+        <line x1="40" y1="96" x2="490" y2="96" class="grid-line" opacity="0.3"/>
+        <line x1="40" y1="54" x2="490" y2="54" class="grid-line" opacity="0.3"/>
+        <!-- Y axis labels -->
+        <text x="35" y="183" class="axis-label" text-anchor="end">$0</text>
+        <text x="35" y="141" class="axis-label" text-anchor="end">$15</text>
+        <text x="35" y="99" class="axis-label" text-anchor="end">$30</text>
+        <text x="35" y="57" class="axis-label" text-anchor="end">$45</text>
+        <text x="35" y="15" class="axis-label" text-anchor="end">$60</text>
+        <!-- X axis labels -->
+        <text x="40" y="195" class="axis-label">14:00</text>
+        <text x="150" y="195" class="axis-label">14:15</text>
+        <text x="265" y="195" class="axis-label">14:30</text>
+        <text x="380" y="195" class="axis-label">14:45</text>
+        <text x="475" y="195" class="axis-label">15:00</text>
+        <!-- analyst (orange) - highest cost -->
+        <polyline points="40,170 80,162 120,150 160,138 200,125 240,110 280,95 320,78 360,62 400,48 440,35 480,22"
+          fill="none" stroke="#ff9830" stroke-width="2"/>
+        <!-- summarizer (blue) -->
+        <polyline points="40,175 80,168 120,160 160,152 200,145 240,138 280,128 320,120 360,112 400,105 440,96 480,88"
+          fill="none" stroke="#5794f2" stroke-width="2"/>
+        <!-- batch_etl (red - approaching budget) -->
+        <polyline points="40,178 80,172 120,165 160,155 200,142 240,128 280,112 320,98 360,85 400,72 440,58 480,42"
+          fill="none" stroke="#f2495c" stroke-width="2" stroke-dasharray="4,2"/>
+        <!-- webhook (green - low steady) -->
+        <polyline points="40,178 80,176 120,174 160,172 200,170 240,167 280,164 320,161 360,158 400,155 440,152 480,148"
+          fill="none" stroke="#73bf69" stroke-width="2"/>
+        <!-- classifier (purple) -->
+        <polyline points="40,177 80,174 120,170 160,165 200,160 240,155 280,150 320,144 360,138 400,132 440,126 480,120"
+          fill="none" stroke="#b877d9" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#ff9830"></div> analyst -- $47.80</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f2495c"></div> batch_etl -- $47.12 &#9888;</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#5794f2"></div> summarizer -- $18.40</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#b877d9"></div> classifier -- $9.62</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#73bf69"></div> webhook -- $4.49</div>
+    </div>
+  </div>
+
+  <!-- Wait Time Distribution -->
+  <div class="panel">
+    <div class="panel-header">Task Wait Time (p50 / p95 / p99) <span class="info">loco_agent_task_wait_time</span></div>
+    <div class="panel-body" style="min-height:220px; padding:8px 4px 4px 4px;">
+      <svg viewBox="0 0 500 200" preserveAspectRatio="none">
+        <!-- Grid -->
+        <line x1="40" y1="10" x2="40" y2="180" class="grid-line"/>
+        <line x1="40" y1="180" x2="490" y2="180" class="grid-line"/>
+        <line x1="40" y1="138" x2="490" y2="138" class="grid-line" opacity="0.3"/>
+        <line x1="40" y1="96" x2="490" y2="96" class="grid-line" opacity="0.3"/>
+        <line x1="40" y1="54" x2="490" y2="54" class="grid-line" opacity="0.3"/>
+        <!-- Y axis -->
+        <text x="35" y="183" class="axis-label" text-anchor="end">0</text>
+        <text x="35" y="141" class="axis-label" text-anchor="end">5</text>
+        <text x="35" y="99" class="axis-label" text-anchor="end">10</text>
+        <text x="35" y="57" class="axis-label" text-anchor="end">15</text>
+        <text x="35" y="15" class="axis-label" text-anchor="end">20</text>
+        <!-- X axis -->
+        <text x="40" y="195" class="axis-label">14:00</text>
+        <text x="150" y="195" class="axis-label">14:15</text>
+        <text x="265" y="195" class="axis-label">14:30</text>
+        <text x="380" y="195" class="axis-label">14:45</text>
+        <text x="475" y="195" class="axis-label">15:00</text>
+        <!-- p99 band (filled area) -->
+        <polygon points="40,150 80,145 120,130 160,120 200,105 240,95 280,88 320,85 360,78 400,82 440,75 480,72 480,180 40,180"
+          fill="#f2495c" opacity="0.08"/>
+        <!-- p95 band -->
+        <polygon points="40,160 80,155 120,145 160,138 200,128 240,120 280,115 320,112 360,108 400,112 440,105 480,100 480,180 40,180"
+          fill="#ff9830" opacity="0.12"/>
+        <!-- p99 -->
+        <polyline points="40,150 80,145 120,130 160,120 200,105 240,95 280,88 320,85 360,78 400,82 440,75 480,72"
+          fill="none" stroke="#f2495c" stroke-width="1.5" stroke-dasharray="4,2"/>
+        <!-- p95 -->
+        <polyline points="40,160 80,155 120,145 160,138 200,128 240,120 280,115 320,112 360,108 400,112 440,105 480,100"
+          fill="none" stroke="#ff9830" stroke-width="1.5"/>
+        <!-- p50 -->
+        <polyline points="40,172 80,170 120,168 160,164 200,160 240,158 280,155 320,154 360,152 400,154 440,150 480,148"
+          fill="none" stroke="#73bf69" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#73bf69"></div> p50 -- 3.8 ticks</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ff9830"></div> p95 -- 9.5 ticks</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f2495c"></div> p99 -- 13.2 ticks</div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 3: Queue & Resource -->
+<div class="section-label">Queue & Resource Health</div>
+<div class="grid two-col">
+  <!-- Queue Depth Stacked -->
+  <div class="panel">
+    <div class="panel-header">Queue Depth by Agent <span class="info">loco_agent_queue_depth_weighted</span></div>
+    <div class="panel-body" style="min-height:220px; padding:8px 4px 4px 4px;">
+      <svg viewBox="0 0 500 200" preserveAspectRatio="none">
+        <!-- Grid -->
+        <line x1="40" y1="10" x2="40" y2="180" class="grid-line"/>
+        <line x1="40" y1="180" x2="490" y2="180" class="grid-line"/>
+        <line x1="40" y1="138" x2="490" y2="138" class="grid-line" opacity="0.3"/>
+        <line x1="40" y1="96" x2="490" y2="96" class="grid-line" opacity="0.3"/>
+        <line x1="40" y1="54" x2="490" y2="54" class="grid-line" opacity="0.3"/>
+        <!-- Y axis -->
+        <text x="35" y="183" class="axis-label" text-anchor="end">0</text>
+        <text x="35" y="141" class="axis-label" text-anchor="end">10</text>
+        <text x="35" y="99" class="axis-label" text-anchor="end">20</text>
+        <text x="35" y="57" class="axis-label" text-anchor="end">30</text>
+        <!-- Stacked areas - batch_etl spike around 14:30 -->
+        <!-- webhook (bottom, green) -->
+        <polygon points="40,175 80,174 120,172 160,170 200,168 240,165 280,168 320,170 360,172 400,170 440,172 480,174 480,180 40,180"
+          fill="#73bf69" opacity="0.5"/>
+        <!-- classifier (purple) -->
+        <polygon points="40,170 80,168 120,164 160,160 200,156 240,152 280,155 320,158 360,162 400,160 440,164 480,168 480,175 40,175 40,175 80,174 120,172 160,170 200,168 240,165 280,168 320,170 360,172 400,170 440,172 480,174"
+          fill="#b877d9" opacity="0.4"/>
+        <!-- summarizer (blue) -->
+        <polygon points="40,162 80,158 120,150 160,142 200,135 240,128 280,132 320,138 360,145 400,140 440,148 480,155 480,170 40,170 40,170 80,168 120,164 160,160 200,156 240,152 280,155 320,158 360,162 400,160 440,164 480,168"
+          fill="#5794f2" opacity="0.4"/>
+        <!-- batch_etl (red - spikes) -->
+        <polygon points="40,155 80,148 120,130 160,105 200,80 240,60 280,75 320,95 360,115 400,105 440,120 480,135 480,162 40,162 40,162 80,158 120,150 160,142 200,135 240,128 280,132 320,138 360,145 400,140 440,148 480,155"
+          fill="#f2495c" opacity="0.35"/>
+        <!-- analyst (orange, top) -->
+        <polygon points="40,145 80,135 120,115 160,88 200,62 240,40 280,55 320,72 360,90 400,78 440,95 480,110 480,155 40,155 40,155 80,148 120,130 160,105 200,80 240,60 280,75 320,95 360,115 400,105 440,120 480,135"
+          fill="#ff9830" opacity="0.35"/>
+        <!-- X axis -->
+        <text x="40" y="195" class="axis-label">14:00</text>
+        <text x="150" y="195" class="axis-label">14:15</text>
+        <text x="265" y="195" class="axis-label">14:30</text>
+        <text x="380" y="195" class="axis-label">14:45</text>
+        <text x="475" y="195" class="axis-label">15:00</text>
+      </svg>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#ff9830"></div> analyst</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f2495c"></div> batch_etl</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#5794f2"></div> summarizer</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#b877d9"></div> classifier</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#73bf69"></div> webhook</div>
+    </div>
+  </div>
+
+  <!-- Resource Utilization + Waiters -->
+  <div class="panel">
+    <div class="panel-header">Resource Utilization & Waiters <span class="info">loco_agent_resource_*</span></div>
+    <div class="panel-body" style="min-height:220px; padding:8px 4px 4px 4px;">
+      <svg viewBox="0 0 500 200" preserveAspectRatio="none">
+        <!-- Grid -->
+        <line x1="40" y1="10" x2="40" y2="180" class="grid-line"/>
+        <line x1="40" y1="180" x2="490" y2="180" class="grid-line"/>
+        <line x1="40" y1="138" x2="490" y2="138" class="grid-line" opacity="0.3"/>
+        <line x1="40" y1="96" x2="490" y2="96" class="grid-line" opacity="0.3"/>
+        <line x1="40" y1="54" x2="490" y2="54" class="grid-line" opacity="0.3"/>
+        <!-- Y axis (left: utilization %) -->
+        <text x="35" y="183" class="axis-label" text-anchor="end">0%</text>
+        <text x="35" y="141" class="axis-label" text-anchor="end">25%</text>
+        <text x="35" y="99" class="axis-label" text-anchor="end">50%</text>
+        <text x="35" y="57" class="axis-label" text-anchor="end">75%</text>
+        <text x="35" y="15" class="axis-label" text-anchor="end">100%</text>
+        <!-- Y axis (right: waiters) -->
+        <text x="495" y="183" class="axis-label">0</text>
+        <text x="495" y="141" class="axis-label">3</text>
+        <text x="495" y="99" class="axis-label">6</text>
+        <text x="495" y="57" class="axis-label">9</text>
+        <!-- X axis -->
+        <text x="40" y="195" class="axis-label">14:00</text>
+        <text x="150" y="195" class="axis-label">14:15</text>
+        <text x="265" y="195" class="axis-label">14:30</text>
+        <text x="380" y="195" class="axis-label">14:45</text>
+        <text x="475" y="195" class="axis-label">15:00</text>
+        <!-- Utilization fill -->
+        <polygon points="40,96 80,88 120,72 160,54 200,38 240,22 280,30 320,46 360,62 400,50 440,60 480,52 480,180 40,180"
+          fill="#73bf69" opacity="0.15"/>
+        <!-- Utilization line -->
+        <polyline points="40,96 80,88 120,72 160,54 200,38 240,22 280,30 320,46 360,62 400,50 440,60 480,52"
+          fill="none" stroke="#73bf69" stroke-width="2"/>
+        <!-- 100% threshold -->
+        <line x1="40" y1="12" x2="490" y2="12" stroke="#f2495c" stroke-width="1" stroke-dasharray="4,4" opacity="0.5"/>
+        <text x="492" y="16" class="axis-label" fill="#f2495c">cap</text>
+        <!-- Waiters (bar-like area) -->
+        <polyline points="40,180 80,180 120,175 160,165 200,150 240,138 280,148 320,158 360,168 400,155 440,162 480,158"
+          fill="none" stroke="#ff9830" stroke-width="2" stroke-dasharray="3,2"/>
+      </svg>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#73bf69"></div> utilization % (left axis)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ff9830"></div> waiters count (right axis)</div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 4: Table -->
+<div class="section-label">Agent Detail</div>
+<div style="padding: 0 16px 8px;">
+  <div class="panel">
+    <div class="panel-header">Per-Agent Cost & Performance <span class="info">loco_agent_cost_total, loco_agent_tasks_completed_total, loco_agent_task_wait_time</span></div>
+    <div class="panel-body table-panel">
+      <table>
+        <thead>
+          <tr>
+            <th>Agent</th>
+            <th>Tasks (1h)</th>
+            <th>Cost (1h)</th>
+            <th>Avg Wait</th>
+            <th>p95 Wait</th>
+            <th>Budget Used</th>
+            <th>Policy Violations</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span style="color:#ff9830">&#9679;</span> analyst</td>
+            <td>612</td>
+            <td>$47.80</td>
+            <td>3.2 ticks</td>
+            <td>8.1 ticks</td>
+            <td class="bar-cell">
+              <div class="bar-bg" style="width:60%; background:#ff9830"></div>
+              <span class="bar-value">$47.80 / $80.00 (60%)</span>
+            </td>
+            <td>0</td>
+          </tr>
+          <tr>
+            <td><span style="color:#f2495c">&#9679;</span> batch_etl</td>
+            <td>489</td>
+            <td style="color:#f2495c">$47.12</td>
+            <td>5.1 ticks</td>
+            <td style="color:#ff9830">12.4 ticks</td>
+            <td class="bar-cell">
+              <div class="bar-bg" style="width:94%; background:#f2495c"></div>
+              <span class="bar-value" style="color:#f2495c">$47.12 / $50.00 (94%) &#9888;</span>
+            </td>
+            <td style="color:#ff9830">3</td>
+          </tr>
+          <tr>
+            <td><span style="color:#5794f2">&#9679;</span> summarizer</td>
+            <td>412</td>
+            <td>$18.40</td>
+            <td>2.8 ticks</td>
+            <td>7.2 ticks</td>
+            <td class="bar-cell">
+              <div class="bar-bg" style="width:37%; background:#5794f2"></div>
+              <span class="bar-value">$18.40 / $50.00 (37%)</span>
+            </td>
+            <td>0</td>
+          </tr>
+          <tr>
+            <td><span style="color:#b877d9">&#9679;</span> classifier</td>
+            <td>218</td>
+            <td>$9.62</td>
+            <td>1.9 ticks</td>
+            <td>4.5 ticks</td>
+            <td class="bar-cell">
+              <div class="bar-bg" style="width:32%; background:#b877d9"></div>
+              <span class="bar-value">$9.62 / $30.00 (32%)</span>
+            </td>
+            <td>0</td>
+          </tr>
+          <tr>
+            <td><span style="color:#73bf69">&#9679;</span> webhook</td>
+            <td>116</td>
+            <td>$4.49</td>
+            <td>1.2 ticks</td>
+            <td>3.1 ticks</td>
+            <td class="bar-cell">
+              <div class="bar-bg" style="width:9%; background:#73bf69"></div>
+              <span class="bar-value">$4.49 / $50.00 (9%)</span>
+            </td>
+            <td>0</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Row 5: Policy violations -->
+<div class="grid three-col" style="padding-bottom: 24px;">
+  <div class="panel">
+    <div class="panel-header">Policy Violations (1h) <span class="info">loco_agent_policy_violations_total</span></div>
+    <div class="panel-body">
+      <div class="stat-value" style="color:#f2495c; font-size:36px;">3</div>
+      <div class="stat-label">all BudgetPolicy on batch_etl</div>
+      <div style="padding:12px; font-size:11px; color:#8e8fa0; margin-top:8px;">
+        <div style="padding:4px 0; border-bottom:1px solid #2c2d33;">14:42:18 &nbsp; batch_etl &nbsp; <span style="color:#f2495c">BudgetPolicy</span> &nbsp; $48.90 > $50.00 &nbsp; <span style="color:#ff9830">alert</span></div>
+        <div style="padding:4px 0; border-bottom:1px solid #2c2d33;">14:38:05 &nbsp; batch_etl &nbsp; <span style="color:#f2495c">BudgetPolicy</span> &nbsp; $47.50 > $50.00 &nbsp; <span style="color:#ff9830">alert</span></div>
+        <div style="padding:4px 0;">14:31:22 &nbsp; batch_etl &nbsp; <span style="color:#f2495c">RatePolicy</span> &nbsp; 52/50 req/min &nbsp; <span style="color:#ff9830">alert</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">Logical Tick Rate <span class="info">rate(loco_agent_logical_tick[1m])</span></div>
+    <div class="panel-body" style="padding:8px 4px;">
+      <svg viewBox="0 0 300 160" preserveAspectRatio="none">
+        <line x1="30" y1="140" x2="290" y2="140" class="grid-line"/>
+        <line x1="30" y1="100" x2="290" y2="100" class="grid-line" opacity="0.3"/>
+        <line x1="30" y1="60" x2="290" y2="60" class="grid-line" opacity="0.3"/>
+        <line x1="30" y1="20" x2="290" y2="20" class="grid-line" opacity="0.3"/>
+        <text x="25" y="143" class="axis-label" text-anchor="end">0</text>
+        <text x="25" y="103" class="axis-label" text-anchor="end">15</text>
+        <text x="25" y="63" class="axis-label" text-anchor="end">30</text>
+        <text x="25" y="23" class="axis-label" text-anchor="end">45</text>
+        <polygon points="30,120 55,115 80,105 105,90 130,72 155,55 180,45 205,50 230,58 255,48 280,42 280,140 30,140"
+          fill="#5794f2" opacity="0.15"/>
+        <polyline points="30,120 55,115 80,105 105,90 130,72 155,55 180,45 205,50 230,58 255,48 280,42"
+          fill="none" stroke="#5794f2" stroke-width="2"/>
+      </svg>
+      <div style="text-align:center; color:#5794f2; font-size:24px; font-weight:300; margin-top:-8px;">31.2 ticks/min</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">Task Cost Distribution <span class="info">loco_agent_task_cost bucket</span></div>
+    <div class="panel-body" style="padding:16px 12px;">
+      <!-- Horizontal histogram bars -->
+      <svg viewBox="0 0 300 140">
+        <text x="38" y="18" class="axis-label" text-anchor="end">w=1</text>
+        <rect x="42" y="8" width="180" height="14" rx="2" fill="#73bf69" opacity="0.6"/>
+        <text x="228" y="19" class="axis-label"> 612</text>
+
+        <text x="38" y="42" class="axis-label" text-anchor="end">w=2</text>
+        <rect x="42" y="32" width="130" height="14" rx="2" fill="#5794f2" opacity="0.6"/>
+        <text x="178" y="43" class="axis-label"> 441</text>
+
+        <text x="38" y="66" class="axis-label" text-anchor="end">w=3</text>
+        <rect x="42" y="56" width="95" height="14" rx="2" fill="#b877d9" opacity="0.6"/>
+        <text x="143" y="67" class="axis-label"> 322</text>
+
+        <text x="38" y="90" class="axis-label" text-anchor="end">w=5</text>
+        <rect x="42" y="80" width="72" height="14" rx="2" fill="#ff9830" opacity="0.6"/>
+        <text x="120" y="91" class="axis-label"> 245</text>
+
+        <text x="38" y="114" class="axis-label" text-anchor="end">w=10</text>
+        <rect x="42" y="104" width="42" height="14" rx="2" fill="#f2495c" opacity="0.6"/>
+        <text x="90" y="115" class="axis-label"> 142</text>
+
+        <text x="38" y="138" class="axis-label" text-anchor="end">w=20</text>
+        <rect x="42" y="128" width="25" height="14" rx="2" fill="#f2495c" opacity="0.4"/>
+        <text x="73" y="139" class="axis-label"> 85</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

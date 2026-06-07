@@ -37,12 +37,17 @@ class SchedulerMetrics:
     """
 
     def __init__(self, scheduler: AsyncLOCOScheduler, ema_alpha: float = 0.3) -> None:
+        from loco.cost_attribution import CostAttribution
+        from loco.outcomes import OutcomeTracker
+
         self._scheduler = scheduler
         self._cumulative_cost: dict[str, float] = {}
         self._session_costs: dict[str, dict[str, float]] = {}  # {session_id: {agent_id: cost}}
         self._actual_tokens: dict[str, list[int]] = {}
         self._ema_weights: dict[str, float] = {}
         self._ema_alpha = ema_alpha  # EMA smoothing factor (higher = more recent)
+        self.attribution = CostAttribution()
+        self.outcomes = OutcomeTracker()
 
     def record_task_cost(self, agent_id: str, cost: float, task: "Task | None" = None) -> None:
         """Record a task's cost for the given agent. Called internally on grant."""
@@ -52,6 +57,8 @@ class SchedulerMetrics:
         if task and task.session_id is not None:
             session = self._session_costs.setdefault(task.session_id, {})
             session[agent_id] = session.get(agent_id, 0.0) + cost
+        if task:
+            self.attribution.record(agent_id, task)
 
     def cost_by_agent(self) -> dict[str, float]:
         """Cumulative task cost per agent. Returns {agent_id: total_weight}."""

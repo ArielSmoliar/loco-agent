@@ -50,6 +50,10 @@ nav:
     - Policy Engine: concepts/policies.md
     - Execution Plans: concepts/plans.md
     - SLO Error Budgets: concepts/slo.md
+    - Prometheus Export: concepts/prometheus.md
+    - Cost Attribution: concepts/cost-attribution.md
+    - Trust Scoring: concepts/trust-scoring.md
+    - Multi-Tenant Isolation: concepts/multi-tenant.md
   - API Reference: api.md
   - Adapters:
     - Overview: adapters/index.md

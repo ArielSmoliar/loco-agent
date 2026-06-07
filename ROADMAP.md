@@ -49,25 +49,23 @@ The positioning pivot: cost governance is the product surface, the scheduler is 
 - **Delegation audit records:** Every grant emits structured policy evaluation record
 - 399 tests across 22 test files
 
----
+### v0.4 -- Enterprise Cost Dashboard + Observability (June 2026)
 
-## In Progress
+The sellable surface. Platform engineers can now answer: "where are my tokens going?"
 
-### v0.4 -- Enterprise Cost Dashboard + Observability (August-September 2026)
-
-> The sellable surface. Platform engineers need to answer: "where are my tokens going?"
-
-| Feature | What it is |
+| Feature | What shipped |
 |---------|------------|
-| **Prometheus / OTEL exporter** | Export scheduling metrics (wait times, utilization, cost per agent, policy violations) to standard observability stacks |
-| **Cost attribution** | Per-team, per-workflow, per-model cost breakdown. Roll up from per-task cost records already in scheduling log |
-| **Token-to-outcome tracking** | Was the token spend worth it? Link scheduling decisions to task outcomes (success/failure/quality score). Closes the loop Jaya Gupta's context graphs miss |
-| **Trust scoring** | 0-1000 behavioral score per agent with time decay. Fast agents get priority, timeout-prone agents get deprioritized. Dynamic weight adjustment from observed behavior |
-| **Multi-tenant isolation** | Separate scheduling domains within one process. Tenant A's agents can't starve Tenant B. Per-tenant cost ceilings |
-| **Grafana template** | Pre-built dashboard for LOCO scheduling metrics. Ships as JSON template after Prometheus exporter |
+| **Prometheus exporter** | `loco/exporters/prometheus.py` -- 16 metrics (gauges, counters, histograms) with HTTP scrape endpoint |
+| **Cost attribution** | `loco/cost_attribution.py` -- per-team, per-workflow, per-model cost breakdowns via `CostAttribution` class |
+| **Token-to-outcome tracking** | `loco/outcomes.py` -- `OutcomeTracker` links token spend to task outcomes for ROI attribution |
+| **Trust scoring** | `loco/trust.py` -- 0-1000 behavioral score per agent with time decay, integrated into grant priority via `TrustScorer` |
+| **Multi-tenant isolation** | `loco/tenant.py` -- `MultiTenantScheduler` with per-tenant agent pools, cost ceilings, and starvation prevention |
+| **Grafana dashboard template** | `grafana/loco-agent-dashboard.json` -- importable dashboard for LOCO scheduling metrics |
 
-**Enterprise tier line:** Cost attribution, multi-tenant isolation, and trust scoring are
-enterprise features (commercial license). The Prometheus exporter and scheduling log stay open core.
+**Enterprise tier line:** Open core: Prometheus exporter, scheduling log, Grafana template.
+Enterprise: Cost attribution, trust scoring, multi-tenant isolation, token-to-outcome tracking.
+
+- 486 tests across 27 test files
 
 ---
 

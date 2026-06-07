@@ -190,6 +190,31 @@ def scheduled(
     return decorator
 
 
+def enable_prometheus(port: int = 9090, addr: str = "0.0.0.0") -> object:
+    """Enable Prometheus metrics export for the global scheduler.
+
+    Starts an HTTP server at the given port serving /metrics in
+    Prometheus exposition format. Requires: pip install loco-agent[prometheus]
+
+    Args:
+        port: Port to serve metrics on. Default 9090.
+        addr: Address to bind to. Default 0.0.0.0.
+
+    Returns:
+        The PrometheusExporter instance.
+
+    Raises:
+        RuntimeError: If configure() hasn't been called.
+        ImportError: If prometheus_client is not installed.
+    """
+    from loco.exporters.prometheus import PrometheusExporter
+
+    scheduler = get_scheduler()
+    exporter = PrometheusExporter(scheduler)
+    exporter.start(port=port, addr=addr)
+    return exporter
+
+
 def reset() -> None:
     """Reset the global scheduler. Mainly for testing."""
     global _scheduler, _budget
