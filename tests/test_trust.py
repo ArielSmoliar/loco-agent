@@ -6,7 +6,7 @@ from loco.agent import Agent
 from loco.async_scheduler import AsyncLOCOScheduler
 from loco.resource import SharedResource
 from loco.task import Task
-from loco.trust import TrustScorer, DEFAULT_SCORE
+from loco.trust import DEFAULT_SCORE, TrustScorer
 
 
 class TestTrustScorerStandalone:

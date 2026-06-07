@@ -10,10 +10,9 @@ from loco.task import Task
 # Skip entire module if prometheus_client is not installed
 prometheus_client = pytest.importorskip("prometheus_client")
 
-from prometheus_client import CollectorRegistry
+from prometheus_client import CollectorRegistry  # noqa: E402
 
-from loco.exporters.prometheus import PrometheusExporter, _HAS_PROMETHEUS
-
+from loco.exporters.prometheus import _HAS_PROMETHEUS, PrometheusExporter  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixture: fresh scheduler + exporter per test (isolated registry)
@@ -255,7 +254,7 @@ class TestHookChaining:
             on_task_completed=my_hook,
         )
         registry = CollectorRegistry()
-        exporter = PrometheusExporter(scheduler, registry=registry)
+        PrometheusExporter(scheduler, registry=registry)  # hooks into scheduler
 
         await scheduler.submit_task("a1", Task(weight=4.0))
         async with scheduler.acquire("a1"):

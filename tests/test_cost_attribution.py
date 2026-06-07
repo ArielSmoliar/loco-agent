@@ -8,7 +8,6 @@ from loco.cost_attribution import CostAttribution
 from loco.resource import SharedResource
 from loco.task import Task
 
-
 # ---------------------------------------------------------------------------
 # Unit tests: CostAttribution standalone
 # ---------------------------------------------------------------------------

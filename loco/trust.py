@@ -28,7 +28,6 @@ import math
 import time
 from dataclasses import dataclass, field
 
-
 # Score range
 MIN_SCORE = 0
 MAX_SCORE = 1000
