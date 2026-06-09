@@ -48,6 +48,7 @@ nav:
     - Contention Resolution: concepts/contention.md
     - Budget Management: concepts/budgets.md
     - Policy Engine: concepts/policies.md
+    - Enforcement Model: concepts/enforcement-model.md
     - Execution Plans: concepts/plans.md
     - SLO Error Budgets: concepts/slo.md
     - Prometheus Export: concepts/prometheus.md
