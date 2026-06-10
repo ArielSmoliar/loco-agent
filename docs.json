@@ -51,6 +51,8 @@
               "docs/concepts/contention",
               "docs/concepts/budgets",
               "docs/concepts/policies",
+              "docs/concepts/enforcement-model",
+              "docs/concepts/litellm-gateway",
               "docs/concepts/plans",
               "docs/concepts/slo"
             ]

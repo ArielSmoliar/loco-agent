@@ -128,6 +128,8 @@ If you already run LiteLLM Proxy, a custom nginx setup, or any reverse proxy:
 
 The point: **you don't write a gateway from scratch.** Either use the 30-line starter above, or plug LOCO into whatever proxy you already run.
 
+For a complete, copy-paste LiteLLM setup -- the `CustomLogger` callback, the `config.yaml`, and the honest multi-worker caveat -- see [LiteLLM Gateway Integration](litellm-gateway.md).
+
 #### Why not just use a gateway alone?
 
 A gateway without LOCO can enforce a dollar cap. But a dollar cap is a blunt instrument. Here's what LOCO adds at the gateway that a simple proxy can't do on its own:
