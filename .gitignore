@@ -46,3 +46,9 @@ coverage.xml
 *.zip
 site/
 .gstack/
+
+# Local / internal -- not for this public repo
+# codex-site/ is a standalone marketing page (deployed separately).
+# drafts/ is internal scratch + strategy notes (backed up privately).
+codex-site/
+drafts/
