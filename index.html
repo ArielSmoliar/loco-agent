@@ -1,0 +1,1921 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source cost attribution, budgets, and scheduling for agentic AI systems">
+      
+      
+      
+        <link rel="canonical" href="https://arielsmoliar.github.io/loco-agent/">
+      
+      
+      
+        <link rel="next" href="quickstart/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>LOCO-Agent - LOCO-Agent</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="LOCO-Agent" class="md-header__button md-logo" aria-label="LOCO-Agent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            LOCO-Agent
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              LOCO-Agent
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ArielSmoliar/loco-agent" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ArielSmoliar/loco-agent
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="LOCO-Agent" class="md-nav__button md-logo" aria-label="LOCO-Agent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    LOCO-Agent
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ArielSmoliar/loco-agent" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ArielSmoliar/loco-agent
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/load-function/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Load Function
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/contention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contention Resolution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/budgets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Budget Management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/policies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Policy Engine
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/enforcement-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Enforcement Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/litellm-gateway/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LiteLLM Gateway
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/plans/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Execution Plans
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/slo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SLO Error Budgets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/prometheus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prometheus Export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/cost-attribution/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cost Attribution
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/trust-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trust Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="concepts/multi-tenant/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-Tenant Isolation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adapters
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Adapters
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adapters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adapters/anthropic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Anthropic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adapters/openai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenAI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adapters/google-adk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Google ADK
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adapters/langchain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LangChain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adapters/crewai/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CrewAI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adapters/aws-bedrock/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AWS Bedrock
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="adapters/autogen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AutoGen
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="demos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Demos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://arielsmoliar.github.io/loco-agent/learning-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interactive Learning Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<style>
+  .md-main__inner:has(.loco-landing) {
+    max-width: none;
+    margin: 0;
+  }
+
+  .md-main__inner:has(.loco-landing) .md-sidebar {
+    display: none;
+  }
+
+  .md-main__inner:has(.loco-landing) .md-content,
+  .md-main__inner:has(.loco-landing) .md-content__inner {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .loco-landing {
+    --paper: #f7efe3;
+    --paper-2: #f0e3d1;
+    --ink: #17120d;
+    --muted: #655b50;
+    --line: rgba(23, 18, 13, 0.18);
+    --line-strong: rgba(23, 18, 13, 0.34);
+    --ember: #ff5a1f;
+    --ember-dark: #d93d13;
+    --green: #1ca66a;
+    --cyan: #067f8f;
+    --blue: #2457d6;
+    --panel: rgba(255, 252, 246, 0.76);
+    color: var(--ink);
+    background:
+      linear-gradient(90deg, rgba(23, 18, 13, 0.07) 1px, transparent 1px),
+      linear-gradient(rgba(23, 18, 13, 0.07) 1px, transparent 1px),
+      radial-gradient(circle at 84% 12%, rgba(255, 90, 31, 0.24), transparent 24rem),
+      radial-gradient(circle at 8% 70%, rgba(6, 127, 143, 0.18), transparent 22rem),
+      linear-gradient(135deg, var(--paper), var(--paper-2));
+    background-size: 28px 28px, 28px 28px, auto, auto, auto;
+    overflow: hidden;
+  }
+
+  [data-md-color-scheme="slate"] .loco-landing {
+    --paper: #11100e;
+    --paper-2: #18130f;
+    --ink: #fff4e6;
+    --muted: #b8aa98;
+    --line: rgba(255, 244, 230, 0.15);
+    --line-strong: rgba(255, 244, 230, 0.34);
+    --panel: rgba(23, 19, 15, 0.82);
+    background:
+      linear-gradient(90deg, rgba(255, 244, 230, 0.06) 1px, transparent 1px),
+      linear-gradient(rgba(255, 244, 230, 0.06) 1px, transparent 1px),
+      radial-gradient(circle at 84% 12%, rgba(255, 90, 31, 0.22), transparent 24rem),
+      radial-gradient(circle at 8% 70%, rgba(6, 127, 143, 0.22), transparent 22rem),
+      linear-gradient(135deg, var(--paper), var(--paper-2));
+  }
+
+  .loco-shell {
+    width: min(1180px, calc(100% - 2rem));
+    margin: 0 auto;
+  }
+
+  .loco-topbar {
+    min-height: 3.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .loco-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--ink) !important;
+    text-decoration: none !important;
+  }
+
+  .loco-mark {
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--ink);
+    background: var(--ember);
+    box-shadow: 0.28rem 0.28rem 0 var(--ink);
+  }
+
+  .loco-nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.8rem;
+  }
+
+  .loco-nav a {
+    color: var(--muted) !important;
+    text-decoration: none !important;
+  }
+
+  .loco-nav a:hover {
+    color: var(--ember) !important;
+  }
+
+  .loco-hero {
+    min-height: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 0.98fr) minmax(360px, 1.02fr);
+    gap: clamp(1.5rem, 4vw, 4rem);
+    align-items: center;
+    padding: clamp(1.5rem, 3vw, 3rem) 0 clamp(0.8rem, 1.8vw, 1.5rem);
+  }
+
+  .loco-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--line-strong);
+    background: rgba(255, 90, 31, 0.12);
+    color: var(--ember-dark);
+    font-size: 0.72rem;
+    font-weight: 950;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  [data-md-color-scheme="slate"] .loco-kicker {
+    color: #ffb089;
+  }
+
+  .loco-kicker::before {
+    content: "";
+    width: 0.55rem;
+    height: 0.55rem;
+    background: var(--green);
+    box-shadow: 0 0 0 3px rgba(28, 166, 106, 0.14);
+  }
+
+  .loco-landing .loco-title {
+    max-width: 11ch;
+    margin: 0.9rem 0 0.8rem !important;
+    color: var(--ink);
+    font-size: clamp(3rem, 5.7vw, 4.8rem);
+    font-weight: 1000;
+    line-height: 0.88;
+    letter-spacing: 0;
+  }
+
+  .loco-landing .loco-title span {
+    color: var(--ember);
+  }
+
+  .loco-landing .loco-lede {
+    max-width: 43rem;
+    margin: 0 0 1rem !important;
+    color: var(--muted);
+    font-size: clamp(0.98rem, 1.25vw, 1.08rem);
+    line-height: 1.48;
+  }
+
+  .loco-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 1rem 0 0.75rem !important;
+  }
+
+  .loco-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.85rem;
+    padding: 0.75rem 0.95rem;
+    border: 1px solid var(--line-strong);
+    color: var(--ink) !important;
+    background: var(--panel);
+    font-weight: 900;
+    text-decoration: none !important;
+    box-shadow: 0.22rem 0.22rem 0 rgba(23, 18, 13, 0.18);
+    transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  }
+
+  .loco-btn:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 0.35rem 0.35rem 0 rgba(23, 18, 13, 0.22);
+  }
+
+  .loco-btn.primary {
+    background: var(--ember);
+    border-color: var(--ink);
+    color: #160c08 !important;
+  }
+
+  .loco-installline {
+    width: min(37rem, 100%);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem;
+    align-items: center;
+    margin-top: 0.7rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--line-strong);
+    background: rgba(23, 18, 13, 0.08);
+    overflow-x: auto;
+  }
+
+  [data-md-color-scheme="slate"] .loco-installline {
+    background: rgba(255, 244, 230, 0.07);
+  }
+
+  .loco-installline b {
+    color: var(--green);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .loco-installline code {
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  .loco-terminal {
+    position: relative;
+    border: 1px solid var(--line-strong);
+    background: #13100d;
+    color: #fff4e6;
+    box-shadow: 0.7rem 0.7rem 0 rgba(255, 90, 31, 0.22);
+    overflow: hidden;
+  }
+
+  .loco-terminal::before {
+    content: "loco runbook";
+    display: block;
+    padding: 0.72rem 0.9rem;
+    border-bottom: 1px solid rgba(255, 244, 230, 0.18);
+    color: #ffb089;
+    font-size: 0.72rem;
+    font-weight: 950;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+  }
+
+  .loco-terminal pre {
+    margin: 0 !important;
+    padding: 0.78rem 0.9rem !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #fff4e6 !important;
+    font-size: 0.76rem !important;
+    line-height: 1.42 !important;
+    overflow-x: auto;
+  }
+
+  .loco-ledger {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-top: 1px solid rgba(255, 244, 230, 0.18);
+    background: rgba(255, 244, 230, 0.06);
+  }
+
+  .loco-ledger div {
+    min-height: 4.25rem;
+    padding: 0.68rem;
+    border-right: 1px solid rgba(255, 244, 230, 0.14);
+  }
+
+  .loco-ledger div:last-child {
+    border-right: 0;
+  }
+
+  .loco-ledger strong {
+    display: block;
+    color: var(--ember);
+    font-size: 1.22rem;
+    line-height: 1;
+  }
+
+  .loco-ledger span {
+    display: block;
+    margin-top: 0.38rem;
+    color: rgba(255, 244, 230, 0.72);
+    font-size: 0.68rem;
+    line-height: 1.18;
+  }
+
+  .loco-strip {
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  [data-md-color-scheme="slate"] .loco-strip {
+    background: rgba(255, 244, 230, 0.04);
+  }
+
+  .loco-strip .loco-shell {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--line);
+  }
+
+  .loco-strip a {
+    min-height: 7.3rem;
+    padding: 1rem;
+    background: var(--panel);
+    color: var(--ink) !important;
+    text-decoration: none !important;
+  }
+
+  .loco-strip strong {
+    display: block;
+    margin-bottom: 0.48rem;
+    color: var(--ink);
+  }
+
+  .loco-strip span {
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .loco-section {
+    padding: clamp(3.2rem, 6vw, 6rem) 0;
+  }
+
+  .loco-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 2rem;
+    margin-bottom: 1.4rem;
+  }
+
+  .loco-section h2 {
+    max-width: 14ch;
+    margin: 0;
+    color: var(--ink);
+    font-size: clamp(2.1rem, 5vw, 4.5rem);
+    line-height: 0.92;
+    letter-spacing: 0;
+  }
+
+  .loco-section-head p {
+    max-width: 35rem;
+    margin: 0;
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .loco-principles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border: 1px solid var(--line);
+    background: var(--line);
+    gap: 1px;
+  }
+
+  .loco-card {
+    min-height: 15rem;
+    padding: 1.1rem;
+    background: var(--panel);
+  }
+
+  .loco-card small {
+    color: var(--ember-dark);
+    font-size: 0.72rem;
+    font-weight: 950;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  [data-md-color-scheme="slate"] .loco-card small {
+    color: #ffb089;
+  }
+
+  .loco-card h3 {
+    margin: 0.85rem 0 0.6rem;
+    color: var(--ink);
+    font-size: 1.35rem;
+    line-height: 1.08;
+  }
+
+  .loco-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.52;
+  }
+
+  .loco-split {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(320px, 1.15fr);
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .loco-split > div {
+    min-width: 0;
+    padding: 1.1rem;
+    background: var(--panel);
+  }
+
+  .loco-split h3 {
+    margin: 0 0 0.8rem;
+    color: var(--ink);
+    font-size: clamp(1.7rem, 3.2vw, 2.8rem);
+    line-height: 0.95;
+  }
+
+  .loco-split p,
+  .loco-split li {
+    color: var(--muted);
+  }
+
+  .loco-split img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--line-strong);
+  }
+
+  .loco-matrix {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .loco-matrix div {
+    min-height: 6.5rem;
+    display: grid;
+    place-items: center;
+    padding: 0.8rem;
+    background: var(--panel);
+    color: var(--ink);
+    text-align: center;
+    font-weight: 950;
+    font-size: 0.82rem;
+  }
+
+  .loco-build {
+    display: grid;
+    grid-template-columns: minmax(0, 0.75fr) minmax(320px, 1.25fr);
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .loco-build > div {
+    min-width: 0;
+    padding: 1.1rem;
+    background: var(--panel);
+  }
+
+  .loco-build h2 {
+    margin-top: 0;
+  }
+
+  .loco-build p {
+    color: var(--muted);
+  }
+
+  .loco-build pre {
+    margin: 0 !important;
+    min-height: 100%;
+    border-radius: 0 !important;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  @media (max-width: 980px) {
+    .loco-topbar {
+      align-items: flex-start;
+      padding: 0.8rem 0;
+    }
+
+    .loco-hero,
+    .loco-split,
+    .loco-build {
+      grid-template-columns: 1fr;
+    }
+
+    .loco-strip .loco-shell,
+    .loco-principles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .loco-matrix {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .loco-section-head {
+      display: block;
+    }
+
+    .loco-section-head p {
+      margin-top: 0.8rem;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .loco-nav {
+      display: none;
+    }
+
+    .loco-hero {
+      min-height: auto;
+      padding: 1.15rem 0 0.55rem;
+    }
+
+    .loco-landing .loco-title {
+      font-size: 2.5rem;
+      max-width: 10ch;
+      margin: 0.7rem 0 0.6rem !important;
+    }
+
+    .loco-landing .loco-lede {
+      font-size: 0.98rem;
+      line-height: 1.42;
+      margin-bottom: 0.8rem !important;
+    }
+
+    .loco-actions {
+      gap: 0.5rem;
+      margin: 0.9rem 0 0.7rem;
+    }
+
+    .loco-btn {
+      min-height: 2.55rem;
+      padding: 0.62rem 0.75rem;
+    }
+
+    .loco-terminal {
+      display: none;
+    }
+
+    .loco-installline {
+      grid-template-columns: 1fr;
+      gap: 0.35rem;
+    }
+
+    .loco-strip .loco-shell,
+    .loco-principles,
+    .loco-matrix {
+      grid-template-columns: 1fr;
+    }
+
+    .loco-strip a,
+    .loco-matrix div {
+      min-height: auto;
+    }
+
+    .loco-build,
+    .loco-build > div {
+      overflow: hidden;
+    }
+  }
+</style>
+
+<section class="loco-landing">
+  <div class="loco-shell loco-topbar">
+    <a class="loco-brand" href="./"><span class="loco-mark"></span>LOCO-Agent</a>
+    <nav class="loco-nav" aria-label="Landing navigation">
+      <a href="quickstart/">Quick Start</a>
+      <a href="concepts/cost-attribution/">Cost</a>
+      <a href="adapters/">Adapters</a>
+      <a href="https://pypi.org/project/loco-agent/">PyPI</a>
+      <a href="https://github.com/ArielSmoliar/loco-agent">GitHub</a>
+    </nav>
+  </div>
+
+  <div class="loco-shell loco-hero">
+    <div>
+      <div class="loco-kicker">Open source for the agent spend era</div>
+      <h1 class="loco-title">Cost firewall for <span>AI agents.</span></h1>
+      <p class="loco-lede">
+        LOCO-Agent is the open-source scheduler, budget circuit breaker, and cost attribution layer for teams running agentic AI in production. Wrap the calls you already make. See who spent what. Decide who gets the next expensive slot.
+      </p>
+      <div class="loco-actions">
+        <a class="loco-btn primary" href="quickstart/">Run it in 5 minutes</a>
+        <a class="loco-btn" href="concepts/cost-attribution/">Trace spend</a>
+        <a class="loco-btn" href="https://github.com/ArielSmoliar/loco-agent">Read source</a>
+      </div>
+      <div class="loco-installline" aria-label="Install command">
+        <b>install</b><code>pip install loco-agent</code>
+      </div>
+    </div>
+
+    <div class="loco-terminal" aria-label="LOCO-Agent terminal preview">
+      <pre><code>$ loco doctor
+found: anthropic, openai, google-adk, langchain
+suggested: shared scheduler with capacity=3
+
+$ LOCO_LOG=pretty python production_agents.py
+[ENQUEUE] security     model=opus   team=soc       workflow=incident-review
+[GRANT]   security     score=0.91   budget=critical-path remaining
+[WAIT]    growth       model=sonnet queue=17.0     reason=capacity
+[FLAG]    support      mode=downgrade budget=exceeded
+[ATTR]    soc          workflow=incident-review model=opus cost=5.0
+
+$ python - <<'PY'
+print(scheduler.metrics.attribution.cost_by_team())
+PY
+{'soc': 91.0, 'support': 38.0, 'growth': 19.0}</code></pre>
+      <div class="loco-ledger">
+        <div><strong>7</strong><span>framework adapters</span></div>
+        <div><strong>4D</strong><span>team, workflow, model, agent</span></div>
+        <div><strong>0</strong><span>required core deps</span></div>
+        <div><strong>486</strong><span>tests on GitHub main</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loco-strip">
+    <div class="loco-shell">
+      <a href="concepts/load-function/"><strong>One allocator</strong><span>Queue depth plus wait time decides who gets scarce LLM capacity next.</span></a>
+      <a href="concepts/budgets/"><strong>Budget circuit breaker</strong><span>Reject, alert, or mark work for downgrade before one agent drains the pool.</span></a>
+      <a href="concepts/cost-attribution/"><strong>Spend ledger</strong><span>Break down cost by team, workflow, model, session, and agent.</span></a>
+      <a href="concepts/prometheus/"><strong>Ops-native metrics</strong><span>Prometheus export and a Grafana dashboard for the queues behind your agents.</span></a>
+    </div>
+  </div>
+
+  <div class="loco-shell loco-section">
+    <div class="loco-section-head">
+      <h2>Built for builders who read the invoice.</h2>
+      <p>
+        Every agent framework makes it easier to call a model. LOCO is for the moment after that: when the demo becomes a system, traffic spikes, premium models get expensive, and someone asks where the tokens went.
+      </p>
+    </div>
+
+    <div class="loco-principles">
+      <div class="loco-card">
+        <small>01 / Own the scheduler</small>
+        <h3>No black-box traffic cop.</h3>
+        <p>LOCO is a Python library you run in your app. The load equation is documented, deterministic, testable, and small enough to understand.</p>
+      </div>
+      <div class="loco-card">
+        <small>02 / Label the work</small>
+        <h3>Cost starts at the task.</h3>
+        <p>Attach team, workflow, model, session, tenant, and outcome metadata where the agent actually does work.</p>
+      </div>
+      <div class="loco-card">
+        <small>03 / Govern before spend</small>
+        <h3>Budgets are runtime policy.</h3>
+        <p>Set limits per agent, team, or tenant, then reject, alert, or flag downgrade paths before the call becomes a surprise line item.</p>
+      </div>
+      <div class="loco-card">
+        <small>04 / Route by pressure</small>
+        <h3>Priority rules do not survive bursts.</h3>
+        <p>LOCO re-scores waiters on each release, so urgent work can climb while long-running batch jobs still make progress.</p>
+      </div>
+      <div class="loco-card">
+        <small>05 / Bring your framework</small>
+        <h3>Adapters, not lock-in.</h3>
+        <p>Anthropic, OpenAI, Google ADK, LangChain, CrewAI, Bedrock, AutoGen, and plain async Python compete for the same shared slots.</p>
+      </div>
+      <div class="loco-card">
+        <small>06 / Ship the dashboard</small>
+        <h3>Ops should see the queue.</h3>
+        <p>Export scheduler state, wait time, utilization, policy violations, trust scores, and cost attribution into the stack you already operate.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="loco-shell loco-section">
+    <div class="loco-split">
+      <div>
+        <h3>The CFO view and the SRE view are the same trace.</h3>
+        <p>
+          LOCO connects the dispatch decision to the spend story: who waited, which model ran, which budget was touched, and whether the outcome was worth the tokens.
+        </p>
+        <ul>
+          <li>Cost by team, workflow, model, agent, and session</li>
+          <li>Token-to-outcome tracking for ROI attribution</li>
+          <li>Trust scoring and multi-tenant isolation</li>
+          <li>Prometheus metrics plus an importable Grafana dashboard</li>
+        </ul>
+      </div>
+      <div>
+        <img src="assets/grafana-dashboard.png" alt="LOCO-Agent Grafana dashboard showing cost, queue depth, wait time, utilization, trust scores, and policy panels">
+      </div>
+    </div>
+  </div>
+
+  <div class="loco-shell loco-section">
+    <div class="loco-section-head">
+      <h2>Same policy across the agent zoo.</h2>
+      <p>
+        Your LangChain batch job, ADK webhook handler, OpenAI assistant, and Anthropic analyst should not each invent their own concurrency, budget, and attribution rules.
+      </p>
+    </div>
+    <div class="loco-matrix" aria-label="Supported adapters">
+      <div>Anthropic SDK</div>
+      <div>OpenAI SDK</div>
+      <div>Google ADK</div>
+      <div>LangChain</div>
+      <div>CrewAI</div>
+      <div>AWS Bedrock</div>
+      <div>AutoGen</div>
+    </div>
+  </div>
+
+  <div class="loco-shell loco-section">
+    <div class="loco-build">
+      <div>
+        <h2>Wrap one call. Keep control.</h2>
+        <p>
+          Start with `loco.wrap()` around any async LLM call. Add adapters, budgets, tenant pools, policy enforcement, and dashboards as the system grows.
+        </p>
+        <div class="loco-actions">
+          <a class="loco-btn primary" href="quickstart/">Quick Start</a>
+          <a class="loco-btn" href="adapters/">Adapters</a>
+        </div>
+      </div>
+      <div>
+
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">loco</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">call_llm</span><span class="p">(</span><span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="k">return</span> <span class="k">await</span> <span class="n">your_model_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">loco</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">capacity</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">budget_mode</span><span class="o">=</span><span class="s2">&quot;downgrade&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">loco</span><span class="o">.</span><span class="n">set_budget</span><span class="p">(</span><span class="s2">&quot;support&quot;</span><span class="p">,</span> <span class="n">max_cost</span><span class="o">=</span><span class="mf">25.0</span><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="k">await</span> <span class="n">loco</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        <span class="n">call_llm</span><span class="p">,</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>        <span class="n">agent_id</span><span class="o">=</span><span class="s2">&quot;support&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>        <span class="n">weight</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>        <span class="n">prompt</span><span class="o">=</span><span class="s2">&quot;summarize customer thread&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="p">)</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">attr</span> <span class="o">=</span> <span class="n">loco</span><span class="o">.</span><span class="n">get_scheduler</span><span class="p">()</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">attribution</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">attr</span><span class="o">.</span><span class="n">cost_by_model</span><span class="p">())</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</code></pre></div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.expand", "content.code.copy", "content.code.annotate"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

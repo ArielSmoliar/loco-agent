@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>LOCO-Agent Contributor Mastery</title>
+<style>
+:root {
+  --bg: #0f1117; --bg2: #161822; --bg3: #1e2030; --bg4: #272a3a;
+  --text: #e0e0e6; --text2: #a0a0b0; --text3: #707088;
+  --accent: #7c6ff7; --accent2: #9d93f9; --accent-bg: rgba(124,111,247,0.12);
+  --green: #4ade80; --green-bg: rgba(74,222,128,0.1);
+  --blue: #60a5fa; --blue-bg: rgba(96,165,250,0.1);
+  --amber: #fbbf24; --amber-bg: rgba(251,191,36,0.1);
+  --red: #f87171; --red-bg: rgba(248,113,113,0.1);
+  --purple: #c084fc; --purple-bg: rgba(192,132,252,0.1);
+  --border: #2a2d3e; --radius: 10px; --shadow: 0 2px 12px rgba(0,0,0,0.3);
+  --sidebar-w: 300px; --topbar-h: 56px;
+}
+.light {
+  --bg: #f5f6fa; --bg2: #ffffff; --bg3: #ffffff; --bg4: #eef0f6;
+  --text: #1a1a2e; --text2: #555570; --text3: #888898;
+  --accent: #6c5ce7; --accent2: #8577ed; --accent-bg: rgba(108,92,231,0.08);
+  --green-bg: rgba(74,222,128,0.12); --blue-bg: rgba(96,165,250,0.12);
+  --amber-bg: rgba(251,191,36,0.12); --red-bg: rgba(248,113,113,0.12);
+  --purple-bg: rgba(192,132,252,0.12);
+  --border: #e0e2ec; --shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { font-size:16px; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:var(--bg); color:var(--text); line-height:1.7; overflow:hidden; height:100vh; }
+a { color:var(--accent2); text-decoration:none; }
+a:hover { text-decoration:underline; }
+code { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size:0.9em; background:var(--bg4); padding:2px 6px; border-radius:4px; }
+pre { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:16px; overflow-x:auto; margin:16px 0; line-height:1.5; }
+pre code { background:none; padding:0; font-size:0.85rem; }
+
+/* Layout */
+#app { display:flex; height:100vh; }
+#sidebar { width:var(--sidebar-w); background:var(--bg2); border-right:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; z-index:100; transition:transform 0.3s ease; }
+#main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+#topbar { height:var(--topbar-h); background:var(--bg2); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 20px; gap:12px; flex-shrink:0; }
+#content { flex:1; overflow-y:auto; padding:32px; scroll-behavior:smooth; }
+
+/* Sidebar */
+.sidebar-header { padding:20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); flex-shrink:0; }
+.sidebar-header h2 { font-size:1.1rem; font-weight:700; color:var(--accent2); letter-spacing:-0.02em; }
+.sidebar-search { padding:12px 16px; flex-shrink:0; }
+.sidebar-search input { width:100%; padding:8px 12px; background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:0.85rem; outline:none; transition:border-color 0.2s; }
+.sidebar-search input:focus { border-color:var(--accent); }
+.sidebar-search input::placeholder { color:var(--text3); }
+#sidebar-nav { flex:1; overflow-y:auto; padding:8px 0; }
+#sidebar-nav::-webkit-scrollbar { width:4px; }
+#sidebar-nav::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.nav-section { margin-bottom:4px; }
+.nav-section-title { padding:8px 20px; font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text3); cursor:pointer; display:flex; align-items:center; justify-content:space-between; user-select:none; }
+.nav-section-title:hover { color:var(--text2); }
+.nav-section-title .arrow { transition:transform 0.2s; font-size:0.65rem; }
+.nav-section.collapsed .arrow { transform:rotate(-90deg); }
+.nav-section.collapsed .nav-topics { display:none; }
+.nav-topic { padding:6px 20px 6px 28px; font-size:0.85rem; color:var(--text2); cursor:pointer; display:flex; align-items:center; gap:8px; transition:all 0.15s; border-left:2px solid transparent; }
+.nav-topic:hover { background:var(--accent-bg); color:var(--text); }
+.nav-topic.active { background:var(--accent-bg); color:var(--accent2); border-left-color:var(--accent); font-weight:500; }
+.nav-topic .check { width:16px; height:16px; border-radius:50%; border:2px solid var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.6rem; }
+.nav-topic.completed .check { background:var(--green); border-color:var(--green); color:#000; }
+.sidebar-footer { padding:16px 20px; border-top:1px solid var(--border); flex-shrink:0; }
+.progress-wrap { display:flex; align-items:center; gap:10px; font-size:0.8rem; color:var(--text2); }
+.progress-bar { flex:1; height:6px; background:var(--bg); border-radius:3px; overflow:hidden; }
+.progress-fill { height:100%; background:linear-gradient(90deg, var(--accent), var(--green)); border-radius:3px; transition:width 0.4s ease; }
+
+/* Topbar */
+#menu-toggle { display:none; background:none; border:none; color:var(--text); font-size:1.4rem; cursor:pointer; padding:4px; }
+#breadcrumb { font-size:0.85rem; color:var(--text2); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#breadcrumb span { color:var(--text3); margin:0 6px; }
+.topbar-btns { display:flex; gap:8px; }
+.btn-icon { background:none; border:1px solid var(--border); color:var(--text2); width:34px; height:34px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:0.9rem; transition:all 0.2s; }
+.btn-icon:hover { background:var(--bg4); color:var(--text); border-color:var(--text3); }
+
+/* Content area */
+#content-inner { max-width:780px; margin:0 auto; }
+.topic-title { font-size:1.8rem; font-weight:800; margin-bottom:8px; letter-spacing:-0.03em; line-height:1.3; }
+.topic-section-label { font-size:0.8rem; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:12px; }
+.topic-body { font-size:1rem; color:var(--text); }
+.topic-body p { margin-bottom:16px; }
+.topic-body h3 { font-size:1.15rem; font-weight:700; margin:28px 0 12px; color:var(--text); }
+.topic-body ul, .topic-body ol { margin:0 0 16px 24px; }
+.topic-body li { margin-bottom:6px; }
+.topic-body strong { color:var(--accent2); font-weight:600; }
+
+/* Info boxes */
+.info-box { border-radius:var(--radius); padding:20px; margin:24px 0; border-left:4px solid; }
+.info-box h4 { font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; }
+.info-box.summary { background:var(--blue-bg); border-color:var(--blue); }
+.info-box.summary h4 { color:var(--blue); }
+.info-box.mental-model { background:var(--purple-bg); border-color:var(--purple); }
+.info-box.mental-model h4 { color:var(--purple); }
+.info-box.mistakes { background:var(--red-bg); border-color:var(--red); }
+.info-box.mistakes h4 { color:var(--red); }
+.info-box.mistakes ul { margin:0; list-style:none; }
+.info-box.mistakes li { padding:4px 0; padding-left:20px; position:relative; }
+.info-box.mistakes li::before { content:"x"; position:absolute; left:0; color:var(--red); font-weight:700; }
+.info-box.exercise { background:var(--green-bg); border-color:var(--green); }
+.info-box.exercise h4 { color:var(--green); }
+
+/* Complete button */
+.complete-btn { display:inline-flex; align-items:center; gap:8px; padding:10px 24px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-size:0.9rem; font-weight:600; cursor:pointer; margin:32px 0 16px; transition:all 0.2s; }
+.complete-btn:hover { background:var(--accent2); transform:translateY(-1px); }
+.complete-btn.done { background:var(--green); }
+.topic-nav { display:flex; justify-content:space-between; margin-top:32px; padding-top:24px; border-top:1px solid var(--border); }
+.topic-nav button { padding:8px 20px; background:var(--bg3); border:1px solid var(--border); color:var(--text2); border-radius:8px; cursor:pointer; font-size:0.85rem; transition:all 0.2s; }
+.topic-nav button:hover { background:var(--bg4); color:var(--text); }
+.topic-nav button:disabled { opacity:0.3; cursor:default; }
+
+/* Dashboard */
+.dash-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:16px; margin-top:24px; }
+.dash-card { background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:20px; cursor:pointer; transition:all 0.2s; }
+.dash-card:hover { border-color:var(--accent); transform:translateY(-2px); box-shadow:var(--shadow); }
+.dash-card h3 { font-size:1rem; font-weight:700; margin-bottom:6px; }
+.dash-card p { font-size:0.8rem; color:var(--text2); margin-bottom:12px; }
+.dash-card .mini-progress { height:4px; background:var(--bg); border-radius:2px; overflow:hidden; }
+.dash-card .mini-fill { height:100%; background:var(--accent); border-radius:2px; transition:width 0.4s; }
+.dash-card .stat { font-size:0.75rem; color:var(--text3); margin-top:8px; }
+.dash-hero { text-align:center; padding:40px 0 20px; }
+.dash-hero h1 { font-size:2rem; font-weight:800; letter-spacing:-0.03em; margin-bottom:8px; }
+.dash-hero p { color:var(--text2); font-size:1rem; max-width:500px; margin:0 auto; }
+.dash-stats { display:flex; justify-content:center; gap:32px; margin:24px 0; }
+.dash-stat { text-align:center; }
+.dash-stat .num { font-size:1.8rem; font-weight:800; color:var(--accent2); }
+.dash-stat .label { font-size:0.75rem; color:var(--text3); text-transform:uppercase; letter-spacing:0.06em; }
+
+/* Search results */
+.search-results { padding:8px 0; }
+.search-result { padding:8px 20px; font-size:0.85rem; cursor:pointer; color:var(--text2); transition:background 0.15s; }
+.search-result:hover { background:var(--accent-bg); color:var(--text); }
+.search-result .sr-section { font-size:0.7rem; color:var(--text3); }
+.no-results { padding:20px; text-align:center; color:var(--text3); font-size:0.85rem; }
+
+/* Sidebar overlay for mobile */
+#sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:99; }
+
+/* Mobile */
+@media (max-width: 768px) {
+  #sidebar { position:fixed; left:0; top:0; bottom:0; transform:translateX(-100%); box-shadow:var(--shadow); }
+  #sidebar.open { transform:translateX(0); }
+  #sidebar-overlay.open { display:block; }
+  #menu-toggle { display:flex; }
+  #content { padding:20px 16px; }
+  .topic-title { font-size:1.4rem; }
+  .dash-hero h1 { font-size:1.5rem; }
+  .dash-stats { gap:20px; }
+  .dash-stat .num { font-size:1.4rem; }
+  .dash-grid { grid-template-columns:1fr; }
+  .topic-nav { flex-direction:column; gap:8px; }
+  .topic-nav button { width:100%; text-align:center; }
+  :root { --sidebar-w: 280px; }
+}
+@media (max-width: 380px) {
+  #content { padding:16px 12px; }
+  .info-box { padding:14px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <h2>LOCO-Agent Mastery</h2>
+      <div class="topbar-btns">
+        <button class="btn-icon" id="theme-btn" title="Toggle theme" aria-label="Toggle theme">
+          <svg id="theme-icon-dark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          <svg id="theme-icon-light" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="sidebar-search">
+      <input type="text" id="search-input" placeholder="Search topics..." aria-label="Search topics">
+    </div>
+    <nav id="sidebar-nav"></nav>
+    <div class="sidebar-footer">
+      <div class="progress-wrap">
+        <span id="progress-text">0%</span>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      </div>
+    </div>
+  </aside>
+  <div id="sidebar-overlay"></div>
+  <div id="main">
+    <div id="topbar">
+      <button id="menu-toggle" aria-label="Open menu">&#9776;</button>
+      <div id="breadcrumb">Dashboard</div>
+    </div>
+    <div id="content"><div id="content-inner"></div></div>
+  </div>
+</div>
+
+<!-- Content files - each pushes sections to window.COURSE_SECTIONS -->
+<script src="content-1-foundations.js"></script>
+<script src="content-2-core-entities.js"></script>
+<script src="content-3-sync-scheduler.js"></script>
+<script src="content-4-async-scheduler.js"></script>
+<script src="content-5-policies.js"></script>
+<script src="content-6-adapters.js"></script>
+<script src="content-7-plans-slos-metrics.js"></script>
+<script src="content-8-testing.js"></script>
+<script src="content-9-contributing.js"></script>
+<script src="content-10-observability.js"></script>
+
+<script>
+(function() {
+  'use strict';
+  const SECTIONS = window.COURSE_SECTIONS || [];
+  const LS_KEY = 'loco-mastery-progress';
+  const LS_THEME = 'loco-mastery-theme';
+
+  // State
+  let state = {
+    currentView: 'dashboard',
+    currentSection: null,
+    currentTopic: null,
+    completed: JSON.parse(localStorage.getItem(LS_KEY) || '{}'),
+    searchQuery: '',
+    collapsedSections: {}
+  };
+
+  // Theme
+  const savedTheme = localStorage.getItem(LS_THEME);
+  if (savedTheme === 'light') document.body.classList.add('light');
+
+  // Helpers
+  function totalTopics() { return SECTIONS.reduce((s, sec) => s + sec.topics.length, 0); }
+  function completedCount() { return Object.keys(state.completed).length; }
+  function isCompleted(id) { return !!state.completed[id]; }
+  function toggleComplete(id) {
+    if (state.completed[id]) delete state.completed[id];
+    else state.completed[id] = Date.now();
+    localStorage.setItem(LS_KEY, JSON.stringify(state.completed));
+    renderSidebar(); updateProgress();
+  }
+  function sectionProgress(sec) {
+    const done = sec.topics.filter(t => isCompleted(t.id)).length;
+    return { done, total: sec.topics.length, pct: sec.topics.length ? Math.round(done/sec.topics.length*100) : 0 };
+  }
+  function flatTopics() {
+    const list = [];
+    SECTIONS.forEach(sec => sec.topics.forEach(t => list.push({ ...t, sectionTitle: sec.title, sectionId: sec.id })));
+    return list;
+  }
+  function findTopicIndex(id) { return flatTopics().findIndex(t => t.id === id); }
+
+  // Render sidebar
+  function renderSidebar() {
+    const nav = document.getElementById('sidebar-nav');
+    const q = state.searchQuery.toLowerCase();
+    if (q) {
+      const results = flatTopics().filter(t =>
+        t.title.toLowerCase().includes(q) || t.sectionTitle.toLowerCase().includes(q)
+      );
+      nav.innerHTML = results.length
+        ? '<div class="search-results">' + results.map(t =>
+          `<div class="search-result" data-id="${t.id}"><div>${t.title}</div><div class="sr-section">${t.sectionTitle}</div></div>`
+        ).join('') + '</div>'
+        : '<div class="no-results">No topics found</div>';
+      nav.querySelectorAll('.search-result').forEach(el => {
+        el.onclick = () => { navigateTo(el.dataset.id); closeMobile(); };
+      });
+      return;
+    }
+    nav.innerHTML = SECTIONS.map(sec => {
+      const collapsed = state.collapsedSections[sec.id];
+      return `<div class="nav-section${collapsed ? ' collapsed' : ''}" data-section="${sec.id}">
+        <div class="nav-section-title"><span>${sec.title}</span><span class="arrow">&#9660;</span></div>
+        <div class="nav-topics">${sec.topics.map(t => {
+          const done = isCompleted(t.id);
+          const active = state.currentTopic === t.id;
+          return `<div class="nav-topic${done ? ' completed' : ''}${active ? ' active' : ''}" data-id="${t.id}">
+            <span class="check">${done ? '&#10003;' : ''}</span><span>${t.title}</span>
+          </div>`;
+        }).join('')}</div>
+      </div>`;
+    }).join('');
+    // Events
+    nav.querySelectorAll('.nav-section-title').forEach(el => {
+      el.onclick = () => {
+        const secId = el.parentElement.dataset.section;
+        state.collapsedSections[secId] = !state.collapsedSections[secId];
+        renderSidebar();
+      };
+    });
+    nav.querySelectorAll('.nav-topic').forEach(el => {
+      el.onclick = () => { navigateTo(el.dataset.id); closeMobile(); };
+    });
+  }
+
+  // Update progress bar
+  function updateProgress() {
+    const total = totalTopics();
+    const done = completedCount();
+    const pct = total ? Math.round(done / total * 100) : 0;
+    document.getElementById('progress-text').textContent = pct + '%';
+    document.getElementById('progress-fill').style.width = pct + '%';
+  }
+
+  // Navigate
+  function navigateTo(topicId) {
+    if (!topicId) { state.currentView = 'dashboard'; state.currentTopic = null; state.currentSection = null; }
+    else {
+      state.currentView = 'topic';
+      state.currentTopic = topicId;
+      const flat = flatTopics();
+      const t = flat.find(t => t.id === topicId);
+      if (t) state.currentSection = t.sectionId;
+    }
+    renderContent();
+    renderSidebar();
+    document.getElementById('content').scrollTop = 0;
+  }
+
+  // Render content
+  function renderContent() {
+    const inner = document.getElementById('content-inner');
+    const bc = document.getElementById('breadcrumb');
+    if (state.currentView === 'dashboard') {
+      bc.innerHTML = 'Dashboard';
+      renderDashboard(inner);
+    } else {
+      const flat = flatTopics();
+      const idx = findTopicIndex(state.currentTopic);
+      const topic = flat[idx];
+      if (!topic) { navigateTo(null); return; }
+      bc.innerHTML = `<span style="cursor:pointer" id="bc-home">Home</span> <span>/</span> ${topic.sectionTitle} <span>/</span> ${topic.title}`;
+      document.getElementById('bc-home').onclick = () => navigateTo(null);
+      renderTopic(inner, topic, idx, flat.length);
+    }
+  }
+
+  // Dashboard
+  function renderDashboard(el) {
+    const total = totalTopics();
+    const done = completedCount();
+    el.innerHTML = `
+      <div class="dash-hero">
+        <h1>LOCO-Agent Contributor Mastery</h1>
+        <p>From core concepts to production contributions. Deep understanding of load-conscious orchestration through real code, mental models, and hands-on exercises.</p>
+      </div>
+      <div class="dash-stats">
+        <div class="dash-stat"><div class="num">${done}</div><div class="label">Completed</div></div>
+        <div class="dash-stat"><div class="num">${total}</div><div class="label">Total Topics</div></div>
+        <div class="dash-stat"><div class="num">${total ? Math.round(done/total*100) : 0}%</div><div class="label">Progress</div></div>
+      </div>
+      <div class="dash-grid">${SECTIONS.map(sec => {
+        const p = sectionProgress(sec);
+        return `<div class="dash-card" data-first="${sec.topics[0]?.id || ''}">
+          <h3>${sec.title}</h3>
+          <p>${sec.topics.length} topics</p>
+          <div class="mini-progress"><div class="mini-fill" style="width:${p.pct}%"></div></div>
+          <div class="stat">${p.done}/${p.total} completed</div>
+        </div>`;
+      }).join('')}</div>`;
+    el.querySelectorAll('.dash-card').forEach(card => {
+      card.onclick = () => { const id = card.dataset.first; if(id) navigateTo(id); };
+    });
+  }
+
+  // Topic
+  function renderTopic(el, topic, idx, total) {
+    const done = isCompleted(topic.id);
+    const prev = idx > 0 ? flatTopics()[idx-1] : null;
+    const next = idx < total-1 ? flatTopics()[idx+1] : null;
+    el.innerHTML = `
+      <div class="topic-section-label">${topic.sectionTitle}</div>
+      <h1 class="topic-title">${topic.title}</h1>
+      <div class="topic-body">${topic.content || '<p>Content loading...</p>'}</div>
+      ${topic.summary ? `<div class="info-box summary"><h4>Summary</h4><p>${topic.summary}</p></div>` : ''}
+      ${topic.mentalModel ? `<div class="info-box mental-model"><h4>Mental Model</h4><p>${topic.mentalModel}</p></div>` : ''}
+      ${topic.mistakes && topic.mistakes.length ? `<div class="info-box mistakes"><h4>Contributor Mistakes to Avoid</h4><ul>${topic.mistakes.map(m=>'<li>'+m+'</li>').join('')}</ul></div>` : ''}
+      ${topic.exercise ? `<div class="info-box exercise"><h4>Exercise</h4><p>${topic.exercise}</p></div>` : ''}
+      <button class="complete-btn${done ? ' done' : ''}" id="complete-btn">${done ? '&#10003; Completed' : 'Mark as Complete'}</button>
+      <div class="topic-nav">
+        <button id="prev-btn" ${!prev ? 'disabled' : ''}>${prev ? '&larr; ' + prev.title : 'Start'}</button>
+        <button id="next-btn" ${!next ? 'disabled' : ''}>${next ? next.title + ' &rarr;' : 'End'}</button>
+      </div>`;
+    document.getElementById('complete-btn').onclick = () => { toggleComplete(topic.id); renderContent(); };
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    if (prev) prevBtn.onclick = () => navigateTo(prev.id);
+    if (next) nextBtn.onclick = () => navigateTo(next.id);
+  }
+
+  // Mobile
+  function closeMobile() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  }
+  document.getElementById('menu-toggle').onclick = () => {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebar-overlay').classList.toggle('open');
+  };
+  document.getElementById('sidebar-overlay').onclick = closeMobile;
+
+  // Theme
+  document.getElementById('theme-btn').onclick = () => {
+    document.body.classList.toggle('light');
+    const isLight = document.body.classList.contains('light');
+    localStorage.setItem(LS_THEME, isLight ? 'light' : 'dark');
+    document.getElementById('theme-icon-dark').style.display = isLight ? 'none' : '';
+    document.getElementById('theme-icon-light').style.display = isLight ? '' : 'none';
+  };
+
+  // Search
+  document.getElementById('search-input').oninput = (e) => {
+    state.searchQuery = e.target.value;
+    renderSidebar();
+  };
+
+  // Keyboard
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+      e.preventDefault();
+      document.getElementById('search-input').focus();
+    }
+    if (e.key === 'Escape') {
+      document.getElementById('search-input').value = '';
+      state.searchQuery = '';
+      document.getElementById('search-input').blur();
+      renderSidebar();
+      closeMobile();
+    }
+  });
+
+  // Init
+  renderSidebar();
+  renderContent();
+  updateProgress();
+
+  // Check if no sections loaded
+  if (!SECTIONS.length) {
+    document.getElementById('content-inner').innerHTML = `
+      <div class="dash-hero">
+        <h1>LOCO-Agent Contributor Mastery</h1>
+        <p>Content files are loading. If you opened this via file://, make sure all content-*.js files are in the same directory as index.html.</p>
+        <p style="margin-top:16px;color:var(--text3)">Alternatively, run a local server:<br><code>cd ~/loco-agent-learning-tool && python3 -m http.server 8080</code><br>Then open <code>http://localhost:8080</code></p>
+      </div>`;
+  }
+})();
+</script>
+</body>
+</html>
