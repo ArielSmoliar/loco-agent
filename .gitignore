@@ -50,5 +50,8 @@ site/
 # Local / internal -- not for this public repo
 # codex-site/ is a standalone marketing page (deployed separately).
 # drafts/ is internal scratch + strategy notes (backed up privately).
+# docs/adk-learning-guide/ is a standalone Google ADK tutorial (mostly not
+# LOCO content); kept out of the product repo, backed up privately.
 codex-site/
 drafts/
+docs/adk-learning-guide/
