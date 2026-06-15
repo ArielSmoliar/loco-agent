@@ -43,5 +43,6 @@ coverage.xml
 # Distribution
 *.tar.gz
 *.whl
+*.zip
 site/
 .gstack/
