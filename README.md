@@ -12,6 +12,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/ArielSmoliar/loco-agent/releases/latest"><img src="https://img.shields.io/github/v/release/ArielSmoliar/loco-agent?color=e65100&label=release" alt="Release"></a>
   <a href="https://pypi.org/project/loco-agent/"><img src="https://img.shields.io/pypi/v/loco-agent?color=e65100&label=PyPI" alt="PyPI"></a>
   <a href="https://pypi.org/project/loco-agent/"><img src="https://img.shields.io/pypi/pyversions/loco-agent?color=1565c0" alt="Python"></a>
   <a href="https://github.com/ArielSmoliar/loco-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-2e7d32" alt="License"></a>
