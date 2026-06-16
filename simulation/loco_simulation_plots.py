@@ -9,17 +9,16 @@ or network calls; this is a discrete scheduler model.
 Run from the simulation/ directory:
     .venv/bin/python loco_simulation_plots.py
 """
-import numpy as np
 import matplotlib.pyplot as plt
-
+import numpy as np
 from loco_simulation_hardened import (
+    ALPHAS,
+    N_SEEDS,
     Agent,
     LOCOScheduler,
     scenario1,
     scenario2,
     scenario3,
-    ALPHAS,
-    N_SEEDS,
 )
 
 plt.rcParams["figure.dpi"] = 130
