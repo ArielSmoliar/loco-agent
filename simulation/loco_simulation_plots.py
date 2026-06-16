@@ -105,7 +105,7 @@ def fig_scenario2():
 
     fig, axes = plt.subplots(1, 3, figsize=(16, 4.6))
     fig.suptitle(
-        "Scenario 2: Throughput-only scheduling starves the quiet agents "
+        "Scenario 2: Queue-depth-only scheduling starves the quiet agents "
         "(10 agents, 500 ticks, 20 seeds, 95% CIs)",
         fontsize=12, fontweight="bold",
     )
@@ -119,9 +119,9 @@ def fig_scenario2():
     m, c = means_cis(sust, "starved")
     ax.errorbar(a, m, yerr=c, color=SUST, marker="s", linewidth=2,
                 capsize=4, label="Sustainable (0.7 arr/tick)")
-    ax.set_xlabel("alpha  (0 = latency, 1 = throughput)")
+    ax.set_xlabel("alpha  (0 = latency, 1 = queue depth)")
     ax.set_ylabel("Starved agents (zero completions) / 10")
-    ax.set_title("Starvation rises as alpha -> throughput-only")
+    ax.set_title("Starvation rises as alpha -> queue-depth-only")
     ax.set_ylim(bottom=-0.2)
     ax.legend(fontsize=8)
 
@@ -133,7 +133,7 @@ def fig_scenario2():
     m, c = means_cis(sust, "jain_c")
     ax.errorbar(a, m, yerr=c, color=SUST, marker="s", linewidth=2,
                 capsize=4, label="Sustainable")
-    ax.set_xlabel("alpha  (0 = latency, 1 = throughput)")
+    ax.set_xlabel("alpha  (0 = latency, 1 = queue depth)")
     ax.set_ylabel("Jain fairness of completion counts")
     ax.set_title("Completion fairness collapses (0.72 -> 0.49)")
     ax.set_ylim(0.4, 1.0)
@@ -150,7 +150,7 @@ def fig_scenario2():
     m, c = means_cis(sust, "hi")
     ax.errorbar(a, m, yerr=c, color=SUST, marker="s", linewidth=2,
                 capsize=4, label="Sustainable, busy agents")
-    ax.set_xlabel("alpha  (0 = latency, 1 = throughput)")
+    ax.set_xlabel("alpha  (0 = latency, 1 = queue depth)")
     ax.set_ylabel("Mean wait of completed tasks (ticks)")
     ax.set_title("Quiet-agent wait looks low partly because they starve\n"
                  "(starved agents have no completed tasks to average)",
@@ -184,7 +184,7 @@ def fig_scenario3():
     for x, y, n in zip(a, wait_m, served_m):
         ax.annotate(f"{n:.0f}/5 served", (x, y), textcoords="offset points",
                     xytext=(0, 9), ha="center", fontsize=8, color=ACCENT)
-    ax.set_xlabel("alpha  (0 = latency, 1 = throughput)")
+    ax.set_xlabel("alpha  (0 = latency, 1 = queue depth)")
     ax.set_ylabel("Ticks after spike until a webhook is first served")
     ax.set_title("Latency-tuned scheduling (low alpha) serves urgent work ~3x faster",
                  fontsize=10)
