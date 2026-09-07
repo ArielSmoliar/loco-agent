@@ -41,6 +41,16 @@ The longer-term direction is a provider-independent **control plane for monitore
 
 LOCO ranks work only after policy determines that it is eligible. Queue pressure, age, cost, or trust can never override a denial.
 
+## Why agent fleets need a control plane
+
+Orchestrators answer **what should run**. Monitors estimate **what looks unsafe**. Infrastructure limits **where work can run**. A fleet still needs a neutral layer that turns those inputs into enforceable decisions about **whether work runs now, later, with less capacity, under review, or not at all**.
+
+LOCO already occupies that decision point for capacity, cost, and policy. The open question is how far that foundation can extend toward monitored fleets without confusing scheduling with alignment or weakening external containment.
+
+That creates a practical research agenda: What must every agent action expose to a monitor? How should uncertain risk change fleet capacity? Which limits belong to a campaign rather than one agent? How do we measure intervention speed without sacrificing useful throughput?
+
+[Read the monitoring-aware roadmap](ROADMAP.md) and help test the premise.
+
 ## Dashboard
 
 <p align="center">
@@ -566,7 +576,14 @@ LOCO is working software with an open research and engineering agenda. The most 
 - **Security experiments:** test authorization boundaries, containment failures, campaign limits, and monitor evasion in isolated environments.
 - **Ecosystem integrations:** improve adapters, provider compatibility, metrics, replay, and operational documentation.
 
-Start a [GitHub issue](https://github.com/ArielSmoliar/loco-agent/issues) to challenge the architecture, propose an experiment, or claim a contribution area. If you are new to the codebase, the **[Interactive Learning Guide](https://arielsmoliar.github.io/loco-agent/learning-guide/)** covers every concept from the load function to writing an adapter.
+### Questions worth challenging
+
+- What is the minimum event contract an independent monitor needs before an action executes?
+- When should a monitor finding throttle one agent, pause a trajectory, or stop an entire campaign?
+- How should LOCO fail when required monitoring or containment becomes unavailable?
+- Can adaptive scheduling stay within 10% of the best fixed policy across normal load, overload, urgent spikes, and recovery?
+
+Open a [GitHub Discussion](https://github.com/ArielSmoliar/loco-agent/discussions) to challenge the thesis or a [GitHub issue](https://github.com/ArielSmoliar/loco-agent/issues/new) to propose an experiment or implementation. If you are new to the codebase, the **[Interactive Learning Guide](https://arielsmoliar.github.io/loco-agent/learning-guide/)** covers every concept from the load function to writing an adapter.
 
 ```bash
 git clone https://github.com/ArielSmoliar/loco-agent.git
