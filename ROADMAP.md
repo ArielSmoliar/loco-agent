@@ -101,6 +101,54 @@ Enterprise: Cost attribution, trust scoring, multi-tenant isolation, token-to-ou
 
 ---
 
+### Future Exploration -- Monitoring-Aware Agent Control (post-v0.6)
+
+> Product direction: **the control plane for monitored agent fleets.** Inspired by the July 2026
+> OpenAI/Hugging Face agent incident and OpenAI's trajectory-monitoring work. This is defense in
+> depth, not a claim that LOCO solves model alignment or monitorability, and not a replacement for
+> sandboxing, network isolation, workload identity, least-privilege credentials, Kubernetes
+> admission control, or independent kill switches.
+
+As models become more capable and long-running, monitors can identify suspicious actions and
+trajectories but still need a reliable way to intervene. LOCO can become that actuation layer:
+monitors supply risk signals, policies define authority, LOCO controls execution capacity, external
+infrastructure provides containment, and humans retain pause and release authority. Unbounded
+multi-agent concurrency is itself a security boundary, but a denied or high-risk action must never
+become eligible merely because its queue is deep or old.
+
+LOCO should own the monitorability substrate and the control response, while keeping detection
+models external and pluggable. Monitorability means making behavior complete, structured,
+attributable, tamper-evident, and replayable. It does not mean claiming that LOCO can infer a
+model's hidden objectives or reliably detect deception.
+
+| Candidate capability | What it would explore |
+|----------------------|-----------------------|
+| **Trajectory control state** | Govern a complete campaign across agents and delegations: objective, original authority, capabilities, destinations, cumulative risk, budgets, and active/paused/quarantined/terminated state |
+| **Canonical monitor event envelope** | Emit framework-neutral records for proposed, allowed, denied, completed, and failed actions with trajectory identity, original intent and authority, delegation lineage, requested capability, destination, data labels, policy decision, and outcome |
+| **Monitor integration contract** | Accept low-latency risk findings from independent chain-of-thought, activation, action, and trajectory monitors without assuming any one monitor is complete or trustworthy |
+| **Pre/post-action hooks** | Support synchronous monitors that may block before execution and asynchronous monitors that analyze completed actions or evolving trajectories |
+| **Monitor coverage health** | Track whether required monitors are current and reachable; fail closed or pause when mandatory coverage disappears instead of silently running unobserved |
+| **Trajectory replay** | Export and deterministically replay incident and evaluation trajectories so monitor recall, policy behavior, and intervention latency can be tested against known failures |
+| **Fail-closed eligibility gate** | Require authorization, healthy containment, monitor coverage, acceptable trajectory risk, and remaining campaign budget before an action enters LOCO scoring |
+| **Capability-aware dispatch** | Match agents to explicitly allowed tools, destinations, data classes, and privilege levels; deny secret access, unknown egress, or privileged workload creation by default |
+| **Campaign-level limits** | Bound aggregate actions, concurrency, delegation fan-out, network calls, compute, and risk across cooperating agents rather than per agent only |
+| **Proportional intervention** | Convert monitor findings into throttling, approval requirements, pauses, quarantine, or termination; restore capacity only through explicit policy or human review |
+| **Reserved defensive capacity** | Protect monitoring, evidence collection, containment, and incident-response workloads from saturation by the agent fleet they supervise |
+| **Tamper-resistant attribution** | Record agent, session, delegation lineage, requested capability, policy decision, destination, and outcome outside the agent-controlled environment |
+| **Independent circuit breaker** | Stop a session or campaign on containment failure, privilege escalation, anomalous destinations, or policy-violation thresholds |
+
+**Validation gate before commitment:** reproduce bounded agent-swarm scenarios in an isolated test
+environment and show that the controls reduce blast radius without turning LOCO into a security
+claim it cannot support. Measure time-to-detection, actions-before-stop, unauthorized-action rate,
+monitor false-positive/false-negative sensitivity, monitor-agent collusion resistance,
+defensive-capacity availability, and scheduler throughput regression.
+
+**Initial product boundary:** ship schemas, hooks, health signals, replay, and control APIs. Do not
+initially build a proprietary behavior classifier, chain-of-thought interpreter, activation monitor,
+or full SIEM. A fleet should be able to replace its monitors without replacing LOCO.
+
+---
+
 ### v1.0 -- LOCO Cloud (2027)
 
 > Managed scheduling layer. The Confluent to LOCO-Agent's Kafka.
@@ -158,6 +206,14 @@ These principles are informed by what we've learned and apply to all future vers
 6. **External state, not conversation state.** Coordination state must live outside agent
    contexts to scale beyond one session. (Anthropic dynamic workflows key insight.)
 
+7. **Security eligibility precedes scheduling.** LOCO may rank only actions that an independent,
+   fail-closed policy layer has already authorized. Queue pressure, trust, cost, and adaptive alpha
+   can never override containment or capability boundaries.
+
+8. **Monitors observe; LOCO actuates.** Treat model and trajectory monitors as fallible signal
+   providers. LOCO's job is to turn their findings into immediate, proportional, auditable control
+   over agent capacity without claiming to determine whether the underlying model is aligned.
+
 ---
 
 ## Risk Register
@@ -170,6 +226,7 @@ These principles are informed by what we've learned and apply to all future vers
 | Dynamic workflows commoditize orchestration | Low | Positioning pressure | LOCO is the cross-provider layer above orchestration. Dynamic workflows validate the problem, not compete with the solution |
 | Enterprise sales cycle before revenue | High | Runway pressure | Open core model. Cost dashboard is first revenue conversation. Design partners before sales |
 | Mutable plans (v0.5) open attack surface | Medium | Security regression | Ship static plans first (v0.3). Mutable plans require security review + adversarial testing |
+| Load-aware scheduling accelerates a compromised agent fleet | Medium | Critical | Keep authorization outside the scoring function; add campaign-level limits, reserved defensive capacity, tamper-resistant audit logs, and an independent circuit breaker before any monitoring-aware control claim |
 
 ---
 
@@ -188,4 +245,5 @@ These principles are informed by what we've learned and apply to all future vers
 | Long-horizon agent workflows | v0.5 | Mutable plans, resumable workflows, saga compensation |
 | GPU pool scheduling | v0.5 | Resource-agnostic load function (same contention model) |
 | Cross-provider model routing | v0.6 | Model-tier routing, cost normalization, failover |
+| Monitoring-aware agent control | Future exploration | Monitorability substrate, trajectory state/replay, pluggable monitors, fail-closed eligibility, proportional intervention, campaign limits |
 | Managed scheduling (SaaS) | v1.0 | LOCO Cloud, fleet dashboard, RBAC |

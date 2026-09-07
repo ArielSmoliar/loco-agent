@@ -8,6 +8,7 @@
   <a href="#quick-start">Quick Start</a> &middot;
   <a href="https://pypi.org/project/loco-agent/">PyPI</a> &middot;
   <a href="#framework-adapters">Adapters</a> &middot;
+  <a href="#roadmap">Roadmap</a> &middot;
   <a href="https://github.com/ArielSmoliar/loco-agent/blob/main/CHANGELOG.md">Changelog</a>
 </p>
 
@@ -25,6 +26,8 @@
 Load-aware scheduling layer for multi-agent AI systems. Sits underneath any Python agent framework and decides which agent gets the shared resource next -- based on queue depth, wait time, and task cost.
 
 Works with LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS Bedrock, and Azure/AutoGen.
+
+**Project direction:** LOCO is evolving toward a provider-independent control plane for monitored agent fleets. Orchestrators decide what agents should do, monitors assess behavior, and LOCO governs whether, when, and at what scale eligible work may act. This is a roadmap direction, not a claim that today's LOCO solves alignment or replaces sandboxing, network isolation, least-privilege credentials, or independent kill switches.
 
 ## Features
 
@@ -523,9 +526,31 @@ graph TD
 - Grafana dashboard template
 - 486 tests
 
-### v0.5+ -- Dynamic Plans, Cross-Provider Routing, LOCO Cloud
+### v0.5 -- Dynamic Plans + Durable Execution (planned Q4 2026)
 
-See [ROADMAP.md](ROADMAP.md) for the full plan.
+- Mutable and resumable plans with external coordination state
+- Environment health signals and saga compensation
+- Security-label flow enforcement at dispatch
+
+### v0.6 -- Cross-Provider Intelligence (planned Q1 2027)
+
+- Model-tier routing, cross-provider cost normalization, and provider failover
+- Empirical weight adjustment and streaming-aware scheduling
+
+### Future Exploration -- Monitoring-Aware Agent Control (post-v0.6)
+
+- A monitorability substrate with canonical action events, trajectory state, and deterministic replay
+- Pluggable monitor signals feeding a fail-closed eligibility gate before LOCO scoring
+- Proportional interventions, campaign-level limits, reserved defensive capacity, and an independent circuit breaker
+- Explicit defense-in-depth boundary: LOCO would actuate policy and monitor findings; it would not determine whether a model is aligned or replace external containment
+
+The goal is to make LOCO **the control plane for monitored agent fleets**: a framework-neutral layer that turns authority, budgets, monitor findings, and system health into enforceable limits on which agents may act and how much capacity they receive.
+
+### v1.0 -- LOCO Cloud (planned 2027)
+
+- Managed scheduling, fleet dashboard, SSO/RBAC, and aggregate quota management
+
+See [ROADMAP.md](ROADMAP.md) for capability boundaries, validation gates, design principles, and the full plan. Feedback, design partners, and open-source collaboration are welcome through [GitHub Issues](https://github.com/ArielSmoliar/loco-agent/issues).
 
 ## Contributing
 
