@@ -4,12 +4,9 @@
 
 <p align="center">
   <a href="https://arielsmoliar.github.io/loco-agent/">Docs</a> &middot;
-  <a href="https://arielsmoliar.github.io/loco-agent/learning-guide/">Interactive Learning Guide</a> &middot;
-  <a href="#quick-start">Quick Start</a> &middot;
-  <a href="https://pypi.org/project/loco-agent/">PyPI</a> &middot;
-  <a href="#framework-adapters">Adapters</a> &middot;
+  <a href="#try-loco-in-five-minutes">Try LOCO</a> &middot;
   <a href="#roadmap">Roadmap</a> &middot;
-  <a href="https://github.com/ArielSmoliar/loco-agent/blob/main/CHANGELOG.md">Changelog</a>
+  <a href="#help-shape-loco">Contribute</a>
 </p>
 
 <p align="center">
@@ -23,36 +20,26 @@
 
 ---
 
-Load-aware scheduling layer for multi-agent AI systems. Sits underneath any Python agent framework and decides which agent gets the shared resource next -- based on queue depth, wait time, and task cost.
+Agent fleets compete for scarce APIs, compute, budgets, and authority. **LOCO decides which eligible work runs next, when it runs, and how much shared capacity it receives.**
 
-Works with LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS Bedrock, and Azure/AutoGen.
+Today, LOCO is an async-first Python scheduling and cost-governance layer. It brings bounded concurrency, policy enforcement, cost attribution, and load-conscious dispatch to LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS Bedrock, and Azure/AutoGen.
 
-**Project direction:** LOCO is evolving toward a provider-independent control plane for monitored agent fleets. Orchestrators decide what agents should do, monitors assess behavior, and LOCO governs whether, when, and at what scale eligible work may act. This is a roadmap direction, not a claim that today's LOCO solves alignment or replaces sandboxing, network isolation, least-privilege credentials, or independent kill switches.
+The longer-term direction is a provider-independent **control plane for monitored agent fleets**:
 
-## Features
+> Orchestrators decide what agents should do. Monitors assess behavior. LOCO controls whether, when, and at what scale eligible work may act.
 
-- **Load function scheduling** -- one equation ranks all agents: `L(i) = alpha * (Qi / max Qj) + (1 - alpha) * (Dmax_i / max Dmax_j)`
-- **No priority rules** -- agents with urgent work escalate automatically via Dmax (wait time)
-- **Bounded concurrency** -- `SharedResource(capacity=N)` limits concurrent LLM calls
-- **Backpressure** -- `max_waiters` cap prevents unbounded queue growth
-- **Cost tracking** -- per-agent token spend visibility across all frameworks
-- **Budget management** -- per-agent spend limits with reject / alert / downgrade enforcement modes
-- **Policy engine** -- composable PolicyEnforcer with budget, access control, and rate limiting policies
-- **Security labels** -- classify task data as public/internal/confidential, enforce at dispatch
-- **Execution plans** -- static DAG with topological sort, cycle detection, and dependency tracking
-- **SLO error budgets** -- state machine (healthy/warning/critical/exhausted) with rolling window
-- **Empirical cost tuning** -- EMA-based weight adjustment from actual token usage
-- **Adaptive alpha** -- auto-tunes the latency/throughput tradeoff based on observed wait-time variance
-- **7 framework adapters** -- Anthropic, OpenAI, Google ADK, LangChain, CrewAI, AWS Bedrock, Azure/AutoGen
-- **Multi-resource** -- deadlock-safe scheduling across multiple resources (LLM + DB + GPU)
-- **A2A protocol** -- registers as a first-class agent-to-agent participant
-- **Framework-agnostic** -- a LangChain agent and an ADK agent are indistinguishable to the scheduler
-- **Prometheus export** -- `loco.enable_prometheus(port=9090)` for standard observability stacks
-- **Cost attribution** -- per-team, per-workflow, per-model cost breakdowns
-- **Trust scoring** -- 0-1000 behavioral score per agent, auto-adjusts scheduling priority
-- **Multi-tenant isolation** -- per-tenant agent pools with independent cost ceilings
-- **Token-to-outcome tracking** -- link token spend to task outcomes for ROI attribution
-- **Grafana dashboard** -- pre-built template for LOCO scheduling metrics
+[Try LOCO](#try-loco-in-five-minutes) · [See how it works](#how-loco-works) · [Help shape the control plane](#help-shape-loco)
+
+## What LOCO does today
+
+| Outcome | Current capabilities |
+|---------|----------------------|
+| **Allocate scarce capacity** | Load-conscious dispatch, bounded concurrency, backpressure, adaptive latency/throughput tuning, and deadlock-safe multi-resource scheduling |
+| **Govern spend and access** | Per-agent budgets, rate limits, access policies, security labels, SLO error budgets, and tenant cost ceilings |
+| **Observe and explain** | Structured scheduling events, Prometheus metrics, cost attribution, token-to-outcome tracking, and a Grafana dashboard |
+| **Integrate mixed fleets** | One async API plus adapters for Anthropic, OpenAI, Google ADK, LangChain, CrewAI, AWS Bedrock, and Azure/AutoGen |
+
+LOCO ranks work only after policy determines that it is eligible. Queue pressure, age, cost, or trust can never override a denial.
 
 ## Dashboard
 
@@ -60,9 +47,9 @@ Works with LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS 
   <img src="docs/assets/grafana-dashboard.png" alt="LOCO-Agent Grafana Dashboard" width="100%"/>
 </p>
 
-<p align="center"><em>LOCO-Agent scheduling dashboard -- cost by agent, wait time percentiles, queue depth, resource utilization, trust scores, and policy violations. Ships as an importable Grafana JSON template.</em></p>
+<p align="center"><em>LOCO-Agent scheduling dashboard: cost by agent, wait time percentiles, queue depth, resource utilization, trust scores, and policy violations. Ships as an importable Grafana JSON template.</em></p>
 
-## Install
+## Try LOCO in five minutes
 
 ```bash
 pip install loco-agent
@@ -78,9 +65,7 @@ pip install -e ".[dev]"
 
 Python 3.10+. Zero required dependencies (adapters use optional deps).
 
-## Quick Start
-
-Wrap any async LLM call with `loco.wrap()` -- one line adds scheduling, concurrency control, and cost tracking:
+Wrap any async LLM call with `loco.wrap()`. One line adds scheduling, concurrency control, and cost tracking:
 
 ```python
 import asyncio
@@ -89,7 +74,7 @@ import loco
 async def main():
     loco.configure(capacity=3)  # 3 concurrent LLM slots
 
-    # Any async callable -- Anthropic, OpenAI, Gemini, etc.
+    # Any async callable: Anthropic, OpenAI, Gemini, etc.
     async def call_llm(prompt):
         await asyncio.sleep(0.1)  # your LLM call here
         return f"response to: {prompt}"
@@ -138,7 +123,25 @@ asyncio.run(main())
 
 </details>
 
-## Core Concepts
+## How LOCO works
+
+When capacity is available, work runs immediately. Under contention, LOCO scores all eligible waiters at grant time using backlog and waiting age. This lets urgent work rise without maintaining a separate priority queue, while bounded concurrency and backpressure protect the shared resource.
+
+```mermaid
+flowchart LR
+    O["Agent orchestrators"] --> P["Policies determine eligibility"]
+    M["Independent monitors\nroadmap"] -. risk findings .-> P
+    P --> L["LOCO allocates capacity"]
+    L --> R["Models, tools, APIs, compute"]
+    L --> E["Events, cost, outcomes"]
+```
+
+Security and containment remain external boundaries. LOCO does not determine whether a model is aligned, replace sandboxing or network isolation, or serve as the only kill switch.
+
+<details>
+<summary><strong>Technical reference: load function, API, budgets, and framework adapters</strong></summary>
+
+## Core concepts
 
 ### The Load Function
 
@@ -148,7 +151,7 @@ L(i) = alpha * (Qi / max Qj) + (1 - alpha) * (Dmax_i / max Dmax_j)
 
 | Term | What it is |
 |------|-----------|
-| `Qi` | Weighted queue depth -- sum of `task.weight` in agent i's queue |
+| `Qi` | Weighted queue depth: sum of `task.weight` in agent i's queue |
 | `Dmax_i` | Age of the oldest waiting task (measured in ticks) |
 | `alpha` | Tradeoff: 0.0 = latency-first, 0.5 = throughput-first |
 
@@ -170,7 +173,7 @@ Do not use alpha > 0.5. Simulation proves alpha >= 0.75 causes starvation.
 
 ### Task Weight
 
-Task weight is a cost proxy set at submit time. The scheduler uses it for queue depth scoring but never interprets it as dollars or tokens -- that's the adapter's job.
+Task weight is a cost proxy set at submit time. The scheduler uses it for queue depth scoring but never interprets it as dollars or tokens. That is the adapter's job.
 
 | Model tier | Typical weight |
 |-----------|---------------|
@@ -186,10 +189,10 @@ When multiple agents call `acquire()` and the resource is full:
 
 1. Agent joins the wait queue
 2. On each `release()`, the scheduler re-scores ALL waiters using L(i)
-3. Highest score gets the slot -- not FIFO
+3. Highest score gets the slot, not FIFO
 4. Dmax grows every tick an agent waits, preventing starvation
 
-Scoring happens at grant time, not request time. An agent that arrived late but has high Dmax can win over one that arrived first.
+Scoring happens at grant time, not request time. A later request from an agent with older queued work can win over an earlier request from an agent whose work has waited less.
 
 ```mermaid
 sequenceDiagram
@@ -450,6 +453,8 @@ scheduler = AsyncLOCOScheduler(all_agents, llm_api, optimize_for="balanced")
 
 When ADK webhooks spike, their Dmax grows. The scheduler deprioritizes LangChain batch jobs automatically.
 
+</details>
+
 ## Examples
 
 ```bash
@@ -500,16 +505,16 @@ graph TD
 
 ## Roadmap
 
-### v0.1 -- Core Scheduler (shipped May 2026)
+### v0.1: Core Scheduler (shipped May 2026)
 - Async acquire/release with grant-time scoring, backpressure, cancellation
 - 4 validated scenarios, structured JSON logging, metrics API
 
-### v0.2 -- Ecosystem + Cost Visibility (shipped May 2026)
+### v0.2: Ecosystem + Cost Visibility (shipped May 2026)
 - 7 framework adapters (Anthropic, OpenAI, ADK, LangChain, CrewAI, Bedrock, AutoGen)
 - BudgetManager, multi-resource contention, adaptive alpha, A2A protocol
 - Convenience API, pretty output, `loco doctor` CLI
 
-### v0.3 -- Cost Governance + Policy Engine (shipped May 2026)
+### v0.3: Cost Governance + Policy Engine (shipped May 2026)
 - PolicyEnforcer with composable policies (budget + access + rate)
 - BudgetPolicy, AccessPolicy, RatePolicy
 - SecurityLabel enum on tasks (public/internal/confidential)
@@ -517,7 +522,7 @@ graph TD
 - SLO error budgets (healthy/warning/critical/exhausted state machine)
 - 399 tests
 
-### v0.4 -- Enterprise Observability (shipped June 2026)
+### v0.4: Enterprise Cost Dashboard + Observability (shipped June 2026)
 - Prometheus / OTEL exporter
 - Cost attribution (per-team, per-workflow, per-model)
 - Token-to-outcome tracking
@@ -526,18 +531,18 @@ graph TD
 - Grafana dashboard template
 - 486 tests
 
-### v0.5 -- Dynamic Plans + Durable Execution (planned Q4 2026)
+### v0.5: Dynamic Plans + Durable Execution (planned Q4 2026)
 
 - Mutable and resumable plans with external coordination state
 - Environment health signals and saga compensation
 - Security-label flow enforcement at dispatch
 
-### v0.6 -- Cross-Provider Intelligence (planned Q1 2027)
+### v0.6: Cross-Provider Intelligence (planned Q1 2027)
 
 - Model-tier routing, cross-provider cost normalization, and provider failover
 - Empirical weight adjustment and streaming-aware scheduling
 
-### Future Exploration -- Monitoring-Aware Agent Control (post-v0.6)
+### Future Exploration: Monitoring-Aware Agent Control (post-v0.6)
 
 - A monitorability substrate with canonical action events, trajectory state, and deterministic replay
 - Pluggable monitor signals feeding a fail-closed eligibility gate before LOCO scoring
@@ -546,28 +551,35 @@ graph TD
 
 The goal is to make LOCO **the control plane for monitored agent fleets**: a framework-neutral layer that turns authority, budgets, monitor findings, and system health into enforceable limits on which agents may act and how much capacity they receive.
 
-### v1.0 -- LOCO Cloud (planned 2027)
+### v1.0: LOCO Cloud (planned 2027)
 
 - Managed scheduling, fleet dashboard, SSO/RBAC, and aggregate quota management
 
 See [ROADMAP.md](ROADMAP.md) for capability boundaries, validation gates, design principles, and the full plan. Feedback, design partners, and open-source collaboration are welcome through [GitHub Issues](https://github.com/ArielSmoliar/loco-agent/issues).
 
-## Contributing
+## Help shape LOCO
 
-New to the codebase? Start with the **[Interactive Learning Guide](https://arielsmoliar.github.io/loco-agent/learning-guide/)** -- 38 topics covering every concept from the load function to writing your first adapter, with real code examples, mental models, and hands-on exercises.
+LOCO is working software with an open research and engineering agenda. The most valuable contributions now are:
+
+- **Scheduling evidence:** benchmark LOCO against FIFO, round-robin, semaphore, static-priority, and random baselines.
+- **Monitor contracts:** help define framework-neutral events, trajectory state, risk findings, and intervention semantics.
+- **Security experiments:** test authorization boundaries, containment failures, campaign limits, and monitor evasion in isolated environments.
+- **Ecosystem integrations:** improve adapters, provider compatibility, metrics, replay, and operational documentation.
+
+Start a [GitHub issue](https://github.com/ArielSmoliar/loco-agent/issues) to challenge the architecture, propose an experiment, or claim a contribution area. If you are new to the codebase, the **[Interactive Learning Guide](https://arielsmoliar.github.io/loco-agent/learning-guide/)** covers every concept from the load function to writing an adapter.
 
 ```bash
 git clone https://github.com/ArielSmoliar/loco-agent.git
 cd loco-agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest   # 486 tests
+pytest
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow. The monitoring-aware control plane remains a research direction. Contributions should preserve the boundary between external authorization and monitoring signals, LOCO's capacity decisions, and independent infrastructure containment.
 
 ## License
 
 AGPL-3.0. See [LICENSE](LICENSE).
 
-Enterprise licensing available -- contact [ariel.smoliar@gmail.com](mailto:ariel.smoliar@gmail.com).
+Enterprise licensing available. Contact [ariel.smoliar@gmail.com](mailto:ariel.smoliar@gmail.com).
