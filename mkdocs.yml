@@ -1,6 +1,6 @@
 site_name: LOCO-Agent
-site_url: https://arielsmoliar.github.io/loco-agent
-site_description: Load-aware scheduling and cost governance for multi-agent AI systems
+site_url: https://loco-agent.ai
+site_description: Open-source scheduling and cost governance for agent fleets, evolving toward monitored agent control
 repo_url: https://github.com/ArielSmoliar/loco-agent
 repo_name: ArielSmoliar/loco-agent
 

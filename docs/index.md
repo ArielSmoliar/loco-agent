@@ -1,6 +1,6 @@
 ---
-title: "LOCO-Agent"
-description: "Open-source cost attribution, budgets, and scheduling for agentic AI systems"
+title: "Control plane for agent fleets"
+description: "Open-source scheduling and cost governance for agent fleets, evolving toward monitored agent control"
 ---
 
 <style>
@@ -359,44 +359,116 @@ description: "Open-source cost attribution, budgets, and scheduling for agentic 
     line-height: 1.55;
   }
 
-  .loco-principles {
+  .loco-positioning {
+    max-width: 43rem;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    border: 1px solid var(--line);
-    background: var(--line);
-    gap: 1px;
+    grid-template-columns: auto 1fr;
+    gap: 0.35rem 0.75rem;
+    margin: 1rem 0 0;
+    padding: 0.85rem 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
   }
 
-  .loco-card {
-    min-height: 15rem;
-    padding: 1.1rem;
-    background: var(--panel);
-  }
-
-  .loco-card small {
+  .loco-positioning dt,
+  .loco-control-row small,
+  .loco-horizon small {
     color: var(--ember-dark);
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 950;
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
 
-  [data-md-color-scheme="slate"] .loco-card small {
+  .loco-positioning dd {
+    margin: 0;
+    color: var(--ink);
+    font-size: 0.84rem;
+    font-weight: 750;
+  }
+
+  [data-md-color-scheme="slate"] .loco-positioning dt,
+  [data-md-color-scheme="slate"] .loco-control-row small,
+  [data-md-color-scheme="slate"] .loco-horizon small {
     color: #ffb089;
   }
 
-  .loco-card h3 {
-    margin: 0.85rem 0 0.6rem;
+  .loco-control-loop {
+    border: 1px solid var(--line);
+    background: var(--panel);
+  }
+
+  .loco-control-row {
+    display: grid;
+    grid-template-columns: 5rem minmax(11rem, 0.7fr) minmax(0, 1.3fr);
+    gap: 1.2rem;
+    align-items: baseline;
+    padding: 1.15rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+
+  .loco-control-row:last-child { border-bottom: 0; }
+  .loco-control-row:nth-child(2) {
+    margin-left: clamp(0rem, 5vw, 4rem);
+    border-left: 4px solid var(--ember);
+  }
+  .loco-control-row:nth-child(3) { margin-left: clamp(0rem, 10vw, 8rem); }
+
+  .loco-control-row h3 {
+    margin: 0;
     color: var(--ink);
-    font-size: 1.35rem;
+    font-size: 1.3rem;
     line-height: 1.08;
   }
 
-  .loco-card p {
+  .loco-control-row p,
+  .loco-horizon p {
     margin: 0;
     color: var(--muted);
     font-size: 0.9rem;
     line-height: 1.52;
+  }
+
+  .loco-horizon {
+    display: grid;
+    grid-template-columns: 1.05fr 1.3fr 0.85fr;
+    gap: 1px;
+    border: 1px solid var(--line);
+    background: var(--line);
+  }
+
+  .loco-horizon > div {
+    min-height: 13rem;
+    padding: 1.15rem;
+    background: var(--panel);
+  }
+
+  .loco-horizon > div:nth-child(2) { background: rgba(255, 90, 31, 0.11); }
+
+  .loco-horizon h3 {
+    margin: 0.7rem 0 0.55rem;
+    color: var(--ink);
+    font-size: 1.35rem;
+  }
+
+  .loco-contribute {
+    padding: clamp(1.4rem, 4vw, 3rem);
+    border: 1px solid var(--line-strong);
+    background: #17120d;
+    color: #fff4e6;
+    box-shadow: 0.65rem 0.65rem 0 rgba(6, 127, 143, 0.2);
+  }
+
+  .loco-contribute h2 { color: #fff4e6; }
+  .loco-contribute p {
+    max-width: 45rem;
+    color: rgba(255, 244, 230, 0.72);
+  }
+  .loco-contribute .loco-btn:not(.primary) {
+    border-color: rgba(255, 244, 230, 0.4);
+    background: rgba(255, 244, 230, 0.08);
+    color: #fff4e6 !important;
   }
 
   .loco-split {
@@ -495,9 +567,11 @@ description: "Open-source cost attribution, budgets, and scheduling for agentic 
     }
 
     .loco-strip .loco-shell,
-    .loco-principles {
+    .loco-horizon {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .loco-horizon > div:last-child { grid-column: 1 / -1; }
 
     .loco-matrix {
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -554,10 +628,18 @@ description: "Open-source cost attribution, budgets, and scheduling for agentic 
     }
 
     .loco-strip .loco-shell,
-    .loco-principles,
+    .loco-horizon,
     .loco-matrix {
       grid-template-columns: 1fr;
     }
+
+    .loco-horizon > div:last-child { grid-column: auto; }
+    .loco-control-row {
+      grid-template-columns: 1fr;
+      gap: 0.35rem;
+    }
+    .loco-control-row:nth-child(2),
+    .loco-control-row:nth-child(3) { margin-left: 0; }
 
     .loco-strip a,
     .loco-matrix div {
@@ -576,23 +658,26 @@ description: "Open-source cost attribution, budgets, and scheduling for agentic 
     <a class="loco-brand" href="./"><span class="loco-mark"></span>LOCO-Agent</a>
     <nav class="loco-nav" aria-label="Landing navigation">
       <a href="quickstart/">Quick Start</a>
-      <a href="concepts/cost-attribution/">Cost</a>
-      <a href="adapters/">Adapters</a>
-      <a href="https://pypi.org/project/loco-agent/">PyPI</a>
+      <a href="#control-plane">How it works</a>
+      <a href="#contribute">Contribute</a>
       <a href="https://github.com/ArielSmoliar/loco-agent">GitHub</a>
     </nav>
   </div>
 
   <div class="loco-shell loco-hero">
     <div>
-      <div class="loco-kicker">Open source for the agent spend era</div>
-      <h1 class="loco-title">Cost firewall for <span>AI agents.</span></h1>
+      <div class="loco-kicker">Open source control for agent fleets</div>
+      <h1 class="loco-title">Control the fleet. <span>Not the mind.</span></h1>
       <p class="loco-lede">
-        LOCO-Agent is the open-source scheduler, budget circuit breaker, and cost attribution layer for teams running agentic AI in production. Wrap the calls you already make. See who spent what. Decide who gets the next expensive slot.
+        LOCO-Agent is the open-source scheduling and cost-governance layer for AI agents. Control which eligible work runs, when it runs, and how much shared capacity it receives.
       </p>
+      <dl class="loco-positioning">
+        <dt>Today</dt><dd>A cost firewall with load-conscious scheduling, budgets, attribution, and policy.</dd>
+        <dt>Direction</dt><dd>A control plane that turns trusted monitor signals into bounded fleet action.</dd>
+      </dl>
       <div class="loco-actions">
         <a class="loco-btn primary" href="quickstart/">Run it in 5 minutes</a>
-        <a class="loco-btn" href="concepts/cost-attribution/">Trace spend</a>
+        <a class="loco-btn" href="https://github.com/ArielSmoliar/loco-agent/discussions/7">Shape the control plane</a>
         <a class="loco-btn" href="https://github.com/ArielSmoliar/loco-agent">Read source</a>
       </div>
       <div class="loco-installline" aria-label="Install command">
@@ -600,7 +685,7 @@ description: "Open-source cost attribution, budgets, and scheduling for agentic 
       </div>
     </div>
 
-    <div class="loco-terminal" aria-label="LOCO-Agent terminal preview">
+    <div class="loco-terminal" aria-label="LOCO-Agent control plane terminal preview">
       <pre><code>$ loco doctor
 found: anthropic, openai, google-adk, langchain
 suggested: shared scheduler with capacity=3
@@ -627,51 +712,60 @@ PY
 
   <div class="loco-strip">
     <div class="loco-shell">
-      <a href="concepts/load-function/"><strong>One allocator</strong><span>Queue depth plus wait time decides who gets scarce LLM capacity next.</span></a>
-      <a href="concepts/budgets/"><strong>Budget circuit breaker</strong><span>Reject, alert, or mark work for downgrade before one agent drains the pool.</span></a>
-      <a href="concepts/cost-attribution/"><strong>Spend ledger</strong><span>Break down cost by team, workflow, model, session, and agent.</span></a>
-      <a href="concepts/prometheus/"><strong>Ops-native metrics</strong><span>Prometheus export and a Grafana dashboard for the queues behind your agents.</span></a>
+      <a href="concepts/policies/"><strong>Eligibility first</strong><span>Policy decides what may run before scheduling decides what runs next.</span></a>
+      <a href="concepts/budgets/"><strong>Cost firewall</strong><span>Reject, alert, or mark work for downgrade before one agent drains the pool.</span></a>
+      <a href="concepts/load-function/"><strong>Load-conscious capacity</strong><span>Urgent work can climb while older jobs keep making progress.</span></a>
+      <a href="concepts/prometheus/"><strong>Operational evidence</strong><span>Trace the queue, decision, budget, attribution, and eventual outcome.</span></a>
+    </div>
+  </div>
+
+  <div class="loco-shell loco-section" id="control-plane">
+    <div class="loco-section-head">
+      <h2>A control plane turns constraints into action.</h2>
+      <p>
+        Models reason. Orchestrators plan. Monitors observe. LOCO sits on the execution path, where policy must become a concrete decision about scarce capacity.
+      </p>
+    </div>
+
+    <div class="loco-control-loop">
+      <div class="loco-control-row">
+        <small>01 / Admit</small>
+        <h3>What is eligible?</h3>
+        <p>Apply budgets, tenant boundaries, trust policy, and rate limits before work consumes a shared resource.</p>
+      </div>
+      <div class="loco-control-row">
+        <small>02 / Allocate</small>
+        <h3>What runs next?</h3>
+        <p>Re-score waiting work as pressure changes, balancing urgency, age, cost, and available capacity.</p>
+      </div>
+      <div class="loco-control-row">
+        <small>03 / Account</small>
+        <h3>What happened?</h3>
+        <p>Attribute spend and outcomes to the team, workflow, model, session, tenant, and agent that caused them.</p>
+      </div>
     </div>
   </div>
 
   <div class="loco-shell loco-section">
     <div class="loco-section-head">
-      <h2>Built for builders who read the invoice.</h2>
-      <p>
-        Every agent framework makes it easier to call a model. LOCO is for the moment after that: when the demo becomes a system, traffic spikes, premium models get expensive, and someone asks where the tokens went.
-      </p>
+      <h2>Built now. Researched next. Claimed carefully.</h2>
+      <p>LOCO is useful without pretending scheduling solves alignment. The roadmap expands the execution layer only where claims can be tested.</p>
     </div>
-
-    <div class="loco-principles">
-      <div class="loco-card">
-        <small>01 / Own the scheduler</small>
-        <h3>No black-box traffic cop.</h3>
-        <p>LOCO is a Python library you run in your app. The load equation is documented, deterministic, testable, and small enough to understand.</p>
+    <div class="loco-horizon">
+      <div>
+        <small>Working today</small>
+        <h3>Cost and capacity control</h3>
+        <p>Scheduling, budget enforcement, attribution, tenant pools, policies, framework adapters, Prometheus metrics, and Grafana dashboards.</p>
       </div>
-      <div class="loco-card">
-        <small>02 / Label the work</small>
-        <h3>Cost starts at the task.</h3>
-        <p>Attach team, workflow, model, session, tenant, and outcome metadata where the agent actually does work.</p>
+      <div>
+        <small>Research direction</small>
+        <h3>Monitoring-aware fleet action</h3>
+        <p>A canonical monitor event contract, campaign-level state, containment policy, audit evidence, and fail-closed behavior when monitoring degrades.</p>
       </div>
-      <div class="loco-card">
-        <small>03 / Govern before spend</small>
-        <h3>Budgets are runtime policy.</h3>
-        <p>Set limits per agent, team, or tenant, then reject, alert, or flag downgrade paths before the call becomes a surprise line item.</p>
-      </div>
-      <div class="loco-card">
-        <small>04 / Route by pressure</small>
-        <h3>Priority rules do not survive bursts.</h3>
-        <p>LOCO re-scores waiters on each release, so urgent work can climb while long-running batch jobs still make progress.</p>
-      </div>
-      <div class="loco-card">
-        <small>05 / Bring your framework</small>
-        <h3>Adapters, not lock-in.</h3>
-        <p>Anthropic, OpenAI, Google ADK, LangChain, CrewAI, Bedrock, AutoGen, and plain async Python compete for the same shared slots.</p>
-      </div>
-      <div class="loco-card">
-        <small>06 / Ship the dashboard</small>
-        <h3>Ops should see the queue.</h3>
-        <p>Export scheduler state, wait time, utilization, policy violations, trust scores, and cost attribution into the stack you already operate.</p>
+      <div>
+        <small>Boundary</small>
+        <h3>Not an alignment solution</h3>
+        <p>LOCO does not understand a model's mind, replace sandboxing or network isolation, or guarantee that a monitor is correct.</p>
       </div>
     </div>
   </div>
@@ -679,7 +773,7 @@ PY
   <div class="loco-shell loco-section">
     <div class="loco-split">
       <div>
-        <h3>The CFO view and the SRE view are the same trace.</h3>
+        <h3>The cost firewall is already working.</h3>
         <p>
           LOCO connects the dispatch decision to the spend story: who waited, which model ran, which budget was touched, and whether the outcome was worth the tokens.
         </p>
@@ -698,7 +792,7 @@ PY
 
   <div class="loco-shell loco-section">
     <div class="loco-section-head">
-      <h2>Same policy across the agent zoo.</h2>
+      <h2>One policy layer across the agent zoo.</h2>
       <p>
         Your LangChain batch job, ADK webhook handler, OpenAI assistant, and Anthropic analyst should not each invent their own concurrency, budget, and attribution rules.
       </p>
@@ -752,6 +846,22 @@ async def main():
 asyncio.run(main())
 ```
 
+      </div>
+    </div>
+  </div>
+
+  <div class="loco-shell loco-section" id="contribute">
+    <div class="loco-contribute">
+      <div class="loco-kicker">Open questions, open source</div>
+      <h2>Help define the missing contract.</h2>
+      <p>
+        How should independent monitors express risk? What evidence should justify containment? How should a fleet recover without masking starvation or losing useful work? We are turning those questions into benchmarks, interfaces, and falsifiable claims in public.
+      </p>
+      <div class="loco-actions">
+        <a class="loco-btn primary" href="https://github.com/ArielSmoliar/loco-agent/discussions/7">Join the discussion</a>
+        <a class="loco-btn" href="https://github.com/ArielSmoliar/loco-agent/issues">Pick an issue</a>
+        <a class="loco-btn" href="https://github.com/ArielSmoliar/loco-agent/blob/main/ROADMAP.md">Read the roadmap</a>
+        <a class="loco-btn" href="https://github.com/ArielSmoliar/loco-agent/blob/main/THREAT_MODEL.md">Challenge the threat model</a>
       </div>
     </div>
   </div>
