@@ -146,7 +146,7 @@ flowchart LR
     L --> E["Events, cost, outcomes"]
 ```
 
-Security and containment remain external boundaries. LOCO does not determine whether a model is aligned, replace sandboxing or network isolation, or serve as the only kill switch.
+Security and containment remain external boundaries. LOCO does not determine whether a model is aligned, replace sandboxing or network isolation, or serve as the only kill switch. Read the [threat model](THREAT_MODEL.md) for deployment boundaries, current controls, and known gaps.
 
 <details>
 <summary><strong>Technical reference: load function, API, budgets, and framework adapters</strong></summary>
