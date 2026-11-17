@@ -38,6 +38,7 @@ else:
 
 
 from loco import logging as loco_log
+from loco._cleanup import finish_cleanup
 from loco.adaptive import AdaptiveAlphaTuner
 from loco.agent import Agent
 from loco.budget import BudgetExceededError, BudgetManager, validate_cost
@@ -309,10 +310,13 @@ class AsyncLOCOScheduler:
                     if granted:
                         await self._release_slot(agent_id)
                     else:
-                        # wait_for_slot returns a raced grant on cancellation. Wake
-                        # another waiter without cancelling anyone else's request.
-                        async with self._lock:
-                            await self._grant_next_waiter()
+                        # wait_for_slot returns raced capacity on cancellation.
+                        # Finish waking the next caller even if cancelled again.
+                        async def wake_next():
+                            async with self._lock:
+                                await self._grant_next_waiter()
+
+                        await finish_cleanup(wake_next())
                 finally:
                     if serving_task is not None:
                         self._task_claims.discard(id(serving_task))
