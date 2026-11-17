@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">LOCO-Agent, control plane for monitored agent fleets</title>
+  <desc id="desc">A control-plane diagram connects orchestrators and monitors through LOCO to models, tools, APIs, and compute.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1b2a"/>
+      <stop offset="0.55" stop-color="#172a40"/>
+      <stop offset="1" stop-color="#0d1b2a"/>
+    </linearGradient>
+    <radialGradient id="signal" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ff6d00" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ff6d00" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#d8e2ee" stroke-width="1" opacity="0.055"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#background)"/>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+  <circle cx="1010" cy="320" r="285" fill="url(#signal)"/>
+
+  <g font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="84" y="104" fill="#ff6d00" font-size="20" font-weight="700" letter-spacing="5">LOCO-AGENT</text>
+    <text x="84" y="198" fill="#f2f6fa" font-size="58" font-weight="760">Control the fleet.</text>
+    <text x="84" y="265" fill="#f2f6fa" font-size="58" font-weight="760">Not the mind.</text>
+    <text x="84" y="329" fill="#a9b9ca" font-size="23">Scheduling and cost governance today.</text>
+    <text x="84" y="365" fill="#a9b9ca" font-size="23">Control for monitored fleets tomorrow.</text>
+
+    <g transform="translate(84 454)">
+      <rect width="500" height="74" rx="14" fill="#13263a" stroke="#35506b"/>
+      <text x="24" y="31" fill="#7f96ad" font-size="14" font-weight="700" letter-spacing="2">OPEN SOURCE</text>
+      <text x="24" y="55" fill="#dce6ef" font-size="18">github.com/ArielSmoliar/loco-agent</text>
+    </g>
+  </g>
+
+  <g transform="translate(600 92)" font-family="system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <path d="M 116 96 C 205 96, 205 188, 270 188" fill="none" stroke="#68829c" stroke-width="3"/>
+    <path d="M 116 280 C 205 280, 205 188, 270 188" fill="none" stroke="#68829c" stroke-width="3"/>
+    <path d="M 426 188 C 485 188, 485 96, 542 96" fill="none" stroke="#ff6d00" stroke-width="3"/>
+    <path d="M 426 188 C 485 188, 485 280, 542 280" fill="none" stroke="#ff6d00" stroke-width="3"/>
+    <path d="M 348 246 L 348 390" fill="none" stroke="#68829c" stroke-width="3" stroke-dasharray="7 8"/>
+
+    <g>
+      <rect x="0" y="58" width="116" height="76" rx="13" fill="#142b40" stroke="#4d6984"/>
+      <text x="58" y="91" text-anchor="middle" fill="#dce6ef" font-size="15" font-weight="700">ORCHESTRATORS</text>
+      <text x="58" y="113" text-anchor="middle" fill="#89a0b6" font-size="12">intent</text>
+    </g>
+    <g>
+      <rect x="0" y="242" width="116" height="76" rx="13" fill="#142b40" stroke="#4d6984"/>
+      <text x="58" y="275" text-anchor="middle" fill="#dce6ef" font-size="15" font-weight="700">MONITORS</text>
+      <text x="58" y="297" text-anchor="middle" fill="#89a0b6" font-size="12">risk findings</text>
+    </g>
+    <g>
+      <circle cx="348" cy="188" r="78" fill="#e65100"/>
+      <circle cx="348" cy="188" r="60" fill="#b83c00" stroke="#ff8a37" stroke-width="2"/>
+      <text x="348" y="181" text-anchor="middle" fill="#fff8f3" font-size="27" font-weight="800">LOCO</text>
+      <text x="348" y="207" text-anchor="middle" fill="#ffd4ba" font-size="12" font-weight="700" letter-spacing="1.5">CAPACITY</text>
+    </g>
+    <g>
+      <rect x="542" y="58" width="116" height="76" rx="13" fill="#142b40" stroke="#4d6984"/>
+      <text x="600" y="91" text-anchor="middle" fill="#dce6ef" font-size="15" font-weight="700">TOOLS</text>
+      <text x="600" y="113" text-anchor="middle" fill="#89a0b6" font-size="12">authority</text>
+    </g>
+    <g>
+      <rect x="542" y="242" width="116" height="76" rx="13" fill="#142b40" stroke="#4d6984"/>
+      <text x="600" y="275" text-anchor="middle" fill="#dce6ef" font-size="15" font-weight="700">COMPUTE</text>
+      <text x="600" y="297" text-anchor="middle" fill="#89a0b6" font-size="12">scarce capacity</text>
+    </g>
+    <g>
+      <rect x="270" y="390" width="156" height="68" rx="13" fill="#142b40" stroke="#4d6984"/>
+      <text x="348" y="420" text-anchor="middle" fill="#dce6ef" font-size="14" font-weight="700">EVIDENCE</text>
+      <text x="348" y="442" text-anchor="middle" fill="#89a0b6" font-size="12">events · cost · outcomes</text>
+    </g>
+  </g>
+</svg>
