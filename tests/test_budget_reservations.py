@@ -24,6 +24,29 @@ async def enqueue(s, cost=5, task_id=None):
     return task
 
 
+async def test_budget_subclass_receives_original_task_metadata():
+    class LabelBudget(BudgetPolicy):
+        def check(self, agent_id, task):
+            if task.labels.get("input") != "public":
+                return False
+            return super().check(agent_id, task)
+
+    budget = LabelBudget(default_limit=10)
+    s, _ = scheduler(budget=budget)
+    allowed = Task(weight=2, labels={"input": "public"})
+    denied = Task(weight=3, labels={"input": "confidential"})
+    await s.submit_task("a", allowed)
+    await s.submit_task("a", denied)
+    async with s.acquire("a", task=allowed):
+        assert budget.reserved("a") == 2
+        with pytest.raises(PolicyViolationError):
+            await s.acquire_start("a", task=denied)
+        assert budget.reserved("a") == 2
+    assert budget.spent("a") == 2
+    assert budget.reserved("a") == 0
+    assert s.resource.holder_count == 0
+
+
 def test_atomic_reserve_across_threads():
     budget = BudgetPolicy(default_limit=10)
     barrier = Barrier(8)

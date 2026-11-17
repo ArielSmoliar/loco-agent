@@ -148,7 +148,7 @@ class BudgetPolicy(Policy):
         """Atomically check the ceiling and commit the estimated cost."""
         cost = validate_cost(task.weight if isinstance(task, Task) else task)
         with self._lock:
-            self._check_or_raise(agent_id, cost)
+            self._check_or_raise(agent_id, task)
             token = BudgetReservation(agent_id, cost, self)
             self._reservations[token.reservation_id] = token
             return token
