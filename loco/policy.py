@@ -27,9 +27,7 @@ class PolicyViolationError(Exception):
         self.policy_name = policy_name
         self.agent_id = agent_id
         self.detail = detail
-        super().__init__(
-            f"Policy {policy_name!r} violated by agent {agent_id!r}: {detail}"
-        )
+        super().__init__(f"Policy {policy_name!r} violated by agent {agent_id!r}: {detail}")
 
 
 class Policy(ABC):
@@ -45,19 +43,45 @@ class Policy(ABC):
     def check(self, agent_id: str, task: Task) -> bool:
         """Check if the task is allowed for this agent.
 
-        Returns True if the task passes. Raises PolicyViolationError
-        or returns False on failure (behavior depends on policy config).
+        Return True to allow, False to deny, or raise PolicyViolationError
+        with a reason. Advisory policies must record their warning and return
+        True. Any non-bool result is a contract error and prevents execution.
         """
+
+    def _check_or_raise(self, agent_id: str, task: Task) -> None:
+        """Apply the boolean contract consistently without checking twice."""
+        result = self.check(agent_id, task)
+        if result is False:
+            raise PolicyViolationError(self.name, agent_id, "check() returned False")
+        if result is not True:
+            raise TypeError(f"Policy {self.name!r} check() must return a bool")
 
     def record(self, agent_id: str, task: Task) -> None:
         """Called after task completes. Override for accounting/tracking."""
+
+    def reserve(self, agent_id: str, task: Task) -> Any:
+        """Check admission. Stateful policies may return an opaque reservation.
+
+        Overrides must enforce check()'s decision (via _check_or_raise) or raise
+        on rejection, and undo partial reservations before raising. Returned
+        values are reservation tokens, not boolean admission decisions.
+        """
+        self._check_or_raise(agent_id, task)
+        return None
+
+    def settle_reservation(self, agent_id, task, reservation, actual_cost=None):
+        """Default lifecycle preserves existing completion hooks."""
+        self.record(agent_id, task)
+
+    def cancel_reservation(self, agent_id, task, reservation):
+        """Roll back admission that failed before execution; stateless by default."""
 
 
 class PolicyEnforcer:
     """Evaluates a list of policies at dispatch time.
 
-    Short-circuits on the first rejection: if any policy raises
-    PolicyViolationError, subsequent policies are not checked.
+    Short-circuits on the first rejection: False becomes PolicyViolationError.
+    Exceptions propagate, and subsequent policies are not checked.
 
     Args:
         policies: Ordered list of policies to evaluate.
@@ -97,7 +121,7 @@ class PolicyEnforcer:
         """
         passed: list[str] = []
         for policy in self._policies:
-            policy.check(agent_id, task)
+            policy._check_or_raise(agent_id, task)
             passed.append(policy.name)
         return passed
 
@@ -105,6 +129,40 @@ class PolicyEnforcer:
         """Record task completion to all policies."""
         for policy in self._policies:
             policy.record(agent_id, task)
+
+    def reserve_all(self, agent_id: str, task: Task) -> list[tuple[Policy, Any]]:
+        """Reserve against a policy snapshot, rolling back if any check fails."""
+        reservations = []
+        try:
+            for policy in tuple(self._policies):
+                reservations.append((policy, policy.reserve(agent_id, task)))
+        except BaseException:
+            self.cancel_all(agent_id, task, reservations)
+            raise
+        return reservations
+
+    @staticmethod
+    def cancel_all(agent_id, task, reservations):
+        error = None
+        for policy, token in reversed(reservations):
+            try:
+                policy.cancel_reservation(agent_id, task, token)
+            except BaseException as exc:
+                error = error or exc
+        if error is not None:
+            raise error
+
+    @staticmethod
+    def settle_all(agent_id, task, reservations, actual_cost=None):
+        """Settle every admitted policy even if another completion hook fails."""
+        error = None
+        for policy, token in reservations:
+            try:
+                policy.settle_reservation(agent_id, task, token, actual_cost)
+            except BaseException as exc:
+                error = error or exc
+        if error is not None:
+            raise error
 
     def summary(self) -> dict[str, Any]:
         """Summary of all policies. Delegates to each policy's summary if available."""

@@ -53,13 +53,20 @@ Budget is checked **after** the resource is acquired but **before** the work exe
 
 1. Agent waits in the scheduling queue like normal
 2. Agent wins a resource slot via L(i) scoring
-3. Budget check runs -- if over budget:
+3. Atomically check settled spend + in-flight reservations + this task estimate. If over budget:
     - Resource is immediately released
     - Next waiting agent gets the slot
     - `BudgetExceededError` is raised (reject mode) or alert recorded (alert mode)
-4. If within budget: work proceeds, spend is recorded on release
+4. If allowed: reserve the estimate before work starts, then replace that reservation with settled spend on release
 
 This design ensures rejected tasks don't inflate cost metrics or emit phantom grant events.
+Concurrent admissions share a process-local ledger when they share the same
+BudgetPolicy object. Separate processes do not share this ledger. See
+[Budget reservations and settlement](../budget_reservations.md) for details.
+
+`check()` alone does not reserve budget. It returns `True` when execution is
+allowed, including advisory `alert` and `downgrade` overages; inspect `alerts`
+for those warnings. Reject mode raises `BudgetExceededError`.
 
 ## Checking Budget State
 
@@ -68,8 +75,9 @@ from loco.budget import BudgetManager
 
 budget = scheduler.budget
 
-budget.spent("analyst")       # Cumulative spend
-budget.remaining("analyst")   # Budget remaining (None if uncapped)
+budget.spent("analyst")       # Settled spend
+budget.reserved("analyst")    # In-flight commitments
+budget.remaining("analyst")   # Limit minus spend and reservations (None if uncapped)
 budget.get_limit("analyst")   # The configured limit
 budget.summary()              # Full state for all agents
 budget.alerts                 # List of all exceeded events
@@ -110,7 +118,8 @@ budget.reset("analyst")   # Reset one agent's spend to 0
 budget.reset_all()        # Reset all agents
 ```
 
-Use this for daily/monthly budget cycles.
+Use this for daily/monthly budget cycles once in-flight reservations have settled.
+Resetting a budget with outstanding reservations raises `RuntimeError`.
 
 ## Full API (BudgetManager)
 

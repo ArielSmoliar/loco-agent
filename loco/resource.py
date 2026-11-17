@@ -31,6 +31,7 @@ class SharedResource:
     _total_holds: int = field(default=0, repr=False)
     _waiters: dict[str, list[asyncio.Event]] = field(default_factory=dict, repr=False)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+    _granted_waiters: set[asyncio.Event] = field(default_factory=set, repr=False)
 
     def __post_init__(self) -> None:
         if self.capacity < 1:
@@ -80,7 +81,14 @@ class SharedResource:
         self._waiters.setdefault(agent_id, []).append(event)
         try:
             await event.wait()
+            if event not in self._granted_waiters:
+                raise asyncio.CancelledError  # cancelled/shutdown, not a resource grant
+            self._granted_waiters.remove(event)
         except (asyncio.CancelledError, Exception):
+            # A grant can race with cancellation before the waiter resumes.
+            if event in self._granted_waiters:
+                self._granted_waiters.remove(event)
+                await self.release(agent_id)
             # Clean up our event on cancellation/timeout
             events = self._waiters.get(agent_id, [])
             try:
@@ -101,6 +109,7 @@ class SharedResource:
                 event = events.pop(0)
                 if not events:
                     del self._waiters[agent_id]
+                self._granted_waiters.add(event)
                 event.set()
 
     async def release(self, agent_id: str) -> None:

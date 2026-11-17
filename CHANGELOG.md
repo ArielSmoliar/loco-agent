@@ -2,6 +2,30 @@
 
 All notable changes to LOCO-Agent are documented in this file.
 
+## Unreleased
+
+### Fixed
+
+- Concurrent acquisitions claim distinct queued tasks before waiting, so one
+  action cannot reuse the labels or estimated cost of an already claimed task.
+- Budget admission atomically reserves in-flight commitments and settles them
+  on completion. Later policy rejection rolls back earlier reservations.
+- Shutdown cancels all queued callers without executing their actions, counts
+  callers rather than agent IDs, and distinguishes cancellation from a slot grant.
+- Custom policy `False` results now deny execution through both acquire APIs
+  and `check_all()`. Non-boolean results fail with `TypeError`.
+
+### Changed
+
+- Advisory budget modes still allow execution but return `True`; overages are
+  recorded in `alerts`. Custom warning-only policies must also return `True`.
+- `spent()` reports settled cost; `reserved()` reports in-flight commitments;
+  `remaining()` subtracts both. Resetting an active budget raises `RuntimeError`.
+- Acquire handles can settle a verified actual cost in budget units. Without one,
+  the original estimate is settled, including on execution failure/cancellation.
+  Reservations coordinate one process; actual charges above estimates can still
+  exceed a ceiling. See `docs/budget_reservations.md`.
+
 ## v0.4.0 -- 2026-06-07
 
 Enterprise Cost Dashboard + Observability. The sellable surface: platform engineers can now
