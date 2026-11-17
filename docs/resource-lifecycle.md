@@ -54,6 +54,6 @@ before the fix. All seven now pass in 20/20 repetitions. The required suite adds
 26 regression cases covering those scenarios plus concurrent tenant accounting,
 exact task claims, timeout isolation, cancellation before/after grant, repeated
 cancellation, partial acquisition, reverse resource ordering, and mixed FIFO/scored
-release. Full local verification: **623 tests passed**, Ruff passed, Python 3.14.5.
+release. Full combined verification: **627 tests passed**, Ruff passed, Python 3.13.
 These are local async tests; distributed coordination and provider billing are
 outside this change.

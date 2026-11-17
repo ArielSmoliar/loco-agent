@@ -6,13 +6,14 @@ callback lifecycle fixes). This is a local branch, not a published release.
 
 - Task/callback cases: `tests/test_task_callback_lifecycle.py`.
 - Tenant/resource-pool cases: `tests/test_tenant_resource_regressions.py`.
-- Full required suite: 623 passed; Ruff passed.
+- Full required suite after combined review: 627 passed on Python 3.13; Ruff passed.
 - Original seven tenant/resource-pool cases: all passed in 20 repetitions each.
   See `resolved-results.json` and `resolved-results.log`.
 
 The explicit audit file re-exports the seven promoted cases, so the audit runner
 and CI cannot silently diverge. `results.json`, `first-run.log`, and
-`remaining-results.*` are historical pre-fix evidence. Use
+`remaining-results.*` are historical pre-fix evidence (log trailing whitespace
+has been normalized). Use
 `python audits/run_boundary_audit.py --output audits/resolved-results.json`
 for a fresh run.
 

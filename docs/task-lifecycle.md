@@ -44,15 +44,6 @@ cancellation during release, and identity validation. Live framework/provider
 integration has not been exercised in this change. Other SDK and vanilla adapter
 lifecycles have not been migrated by this scoped fix.
 
-The tenant/resource-pool waiting, timeout, and ceiling findings were subsequently
-fixed on `codex/tenant-resource-lifecycle`; see `docs/resource-lifecycle.md`.
-
-## Local verification of the earlier task/callback fix
-
-- Full required suite: 597 passed on Python 3.14.5; Ruff passed.
-- Lifecycle regression file: 52 passed, including promoted audit scenarios.
-- The ten wrapper scenarios against the previous code: six failures and four
-  passing controls. Those same ten scenarios pass with this fix.
-- The remaining explicit audit: four failing variants and three passing controls
-  (tenant/resource-pool findings above). Its failure status is expected and is
-  not included in the passing required-suite count.
+Tenant/resource-pool waiting, timeouts, and ceiling checks are covered in
+[Resource lifecycle](resource-lifecycle.md). The historical audit and reproduction
+results are preserved in [the audit report](../audits/README.md).

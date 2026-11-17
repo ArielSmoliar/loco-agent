@@ -10,10 +10,10 @@ api = 'wrap', prior_rejection = True
         s = loco.configure(capacity=2, budget_mode="reject", auto_tune=False)
         loco.set_budget("a", 2)
         effects = []
-    
+
         async def action():
             effects.append("ran")
-    
+
         if prior_rejection:
             with pytest.raises(BudgetExceededError):
                 await invoke(api, action, weight=3)
@@ -21,8 +21,8 @@ api = 'wrap', prior_rejection = True
         # Cheap work fits even if an earlier expensive request was rejected.
 >       await invoke(api, action, weight=1)
 
-audits/test_boundary_contracts.py:58: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+audits/test_boundary_contracts.py:58:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 audits/test_boundary_contracts.py:32: in invoke
     return await loco.wrap(fn, agent_id=aid, weight=weight)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -46,14 +46,14 @@ loco/budget.py:151: in reserve
 loco/policy.py:53: in _check_or_raise
     result = self.check(agent_id, task)
              ^^^^^^^^^^^^^^^^^^^^^^^^^^
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 self = <loco.budget.BudgetPolicy object at 0x1089dfb10>, agent_id = 'a'
 task_cost = 3.0
 
     def check(self, agent_id: str, task_cost: Task | float = 0.0) -> bool:
         """Return True to allow, raising on reject-mode overages.
-    
+
         Alert/downgrade overages record a warning and return True. Inspect
         alerts for warnings; use reserve() for atomic check-and-commit admission.
         """
@@ -89,10 +89,10 @@ api = 'scheduled', prior_rejection = True
         s = loco.configure(capacity=2, budget_mode="reject", auto_tune=False)
         loco.set_budget("a", 2)
         effects = []
-    
+
         async def action():
             effects.append("ran")
-    
+
         if prior_rejection:
             with pytest.raises(BudgetExceededError):
                 await invoke(api, action, weight=3)
@@ -100,8 +100,8 @@ api = 'scheduled', prior_rejection = True
         # Cheap work fits even if an earlier expensive request was rejected.
 >       await invoke(api, action, weight=1)
 
-audits/test_boundary_contracts.py:58: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+audits/test_boundary_contracts.py:58:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 audits/test_boundary_contracts.py:33: in invoke
     return await loco.scheduled(agent_id=aid, weight=weight)(fn)()
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -125,14 +125,14 @@ loco/budget.py:151: in reserve
 loco/policy.py:53: in _check_or_raise
     result = self.check(agent_id, task)
              ^^^^^^^^^^^^^^^^^^^^^^^^^^
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 self = <loco.budget.BudgetPolicy object at 0x108ade9e0>, agent_id = 'a'
 task_cost = 3.0
 
     def check(self, agent_id: str, task_cost: Task | float = 0.0) -> bool:
         """Return True to allow, raising on reject-mode overages.
-    
+
         Alert/downgrade overages record a warning and return True. Inspect
         alerts for warnings; use reserve() for atomic check-and-commit admission.
         """
@@ -169,18 +169,18 @@ api = 'wrap', overlap = True
         loco.set_budget("a", 100)
         entered, release = asyncio.Event(), asyncio.Event()
         effects = []
-    
+
         async def slow():
             effects.append(2)
             entered.set()
             await release.wait()
-    
+
         async def medium():
             effects.append(5)
-    
+
         async def cheap():
             effects.append(1)
-    
+
         first = asyncio.create_task(invoke(api, slow, weight=2))
         try:
             await asyncio.wait_for(entered.wait(), 0.5)
@@ -216,18 +216,18 @@ api = 'scheduled', overlap = True
         loco.set_budget("a", 100)
         entered, release = asyncio.Event(), asyncio.Event()
         effects = []
-    
+
         async def slow():
             effects.append(2)
             entered.set()
             await release.wait()
-    
+
         async def medium():
             effects.append(5)
-    
+
         async def cheap():
             effects.append(1)
-    
+
         first = asyncio.create_task(invoke(api, slow, weight=2))
         try:
             await asyncio.wait_for(entered.wait(), 0.5)
@@ -262,14 +262,14 @@ api = 'wrap'
         loco.set_budget("a", 100)
         entered, release = asyncio.Event(), asyncio.Event()
         effects = []
-    
+
         async def holder():
             entered.set()
             await release.wait()
-    
+
         async def forbidden():
             effects.append("cancelled")
-    
+
         first = asyncio.create_task(invoke(api, holder, weight=2))
         second = None
         try:
@@ -290,7 +290,7 @@ api = 'wrap'
 >       assert s.get_agent("a").tasks == [], "Cancelled request remains queued"
 E       AssertionError: Cancelled request remains queued
 E       assert [Task(task_id..., model=None)] == []
-E         
+E
 E         Left contains one more item: Task(task_id='ad1846a296e3', weight=5, arrival_tick=0, age=1, task_type='default', labels=None, session_id=None, team=None, workflow=None, model=None)
 E         Use -v to get more diff
 
@@ -305,14 +305,14 @@ api = 'scheduled'
         loco.set_budget("a", 100)
         entered, release = asyncio.Event(), asyncio.Event()
         effects = []
-    
+
         async def holder():
             entered.set()
             await release.wait()
-    
+
         async def forbidden():
             effects.append("cancelled")
-    
+
         first = asyncio.create_task(invoke(api, holder, weight=2))
         second = None
         try:
@@ -333,7 +333,7 @@ api = 'scheduled'
 >       assert s.get_agent("a").tasks == [], "Cancelled request remains queued"
 E       AssertionError: Cancelled request remains queued
 E       assert [Task(task_id..., model=None)] == []
-E         
+E
 E         Left contains one more item: Task(task_id='81b5e728b709', weight=5, arrival_tick=0, age=1, task_type='default', labels=None, session_id=None, team=None, workflow=None, model=None)
 E         Use -v to get more diff
 
@@ -367,7 +367,7 @@ kind = 'langchain', overlap = True
         }
 E       AssertionError: {'holders': 1, 'reserved': 1.0, 'settled': 1.0}
 E       assert (1, 1.0, 1.0) == (0, 0, 2)
-E         
+E
 E         At index 0 diff: 1 != 0
 E         Use -v to get more diff
 
@@ -401,7 +401,7 @@ kind = 'adk', overlap = True
         }
 E       AssertionError: {'holders': 1, 'reserved': 1.0, 'settled': 1.0}
 E       assert (1, 1.0, 1.0) == (0, 0, 2)
-E         
+E
 E         At index 0 diff: 1 != 0
 E         Use -v to get more diff
 
@@ -435,7 +435,7 @@ kind = 'crewai', overlap = True
         }
 E       AssertionError: {'holders': 1, 'reserved': 1.0, 'settled': 1.0}
 E       assert (1, 1.0, 1.0) == (0, 0, 2)
-E         
+E
 E         At index 0 diff: 1 != 0
 E         Use -v to get more diff
 
@@ -446,18 +446,18 @@ fut = <Future cancelled>, timeout = 0.05
 
     async def wait_for(fut, timeout):
         """Wait for the single Future or coroutine to complete, with timeout.
-    
+
         Coroutine will be wrapped in Task.
-    
+
         Returns result of the Future or coroutine.  When a timeout occurs,
         it cancels the task and raises TimeoutError.  To avoid the task
         cancellation, wrap it in shield().
-    
+
         If the wait is cancelled, the task is also cancelled.
-    
+
         If the task suppresses the cancellation and returns a value instead,
         that value is returned.
-    
+
         This function is a coroutine.
         """
         # The special case for timeout <= 0 is for the following case:
@@ -477,20 +477,20 @@ fut = <Future cancelled>, timeout = 0.05
         #         assert False
         #
         # asyncio.run(test_waitfor())
-    
-    
+
+
         if timeout is not None and timeout <= 0:
             fut = ensure_future(fut)
-    
+
             if fut.done():
                 return fut.result()
-    
+
             await _cancel_and_wait(fut)
             try:
                 return fut.result()
             except exceptions.CancelledError as exc:
                 raise TimeoutError from exc
-    
+
         async with timeouts.timeout(timeout):
 >           return await fut
                    ^^^^^^^^^
@@ -507,11 +507,11 @@ kind = 'tenant', capacity = 1
     async def test_release_eventually_runs_waiting_action(kind, capacity):
         effects = []
         async with contended_resource(kind, capacity) as (resource, acquire):
-    
+
             async def worker():
                 async with acquire("waiter"):
                     effects.append("ran")
-    
+
             async with acquire("holder"):
                 waiter = asyncio.create_task(worker())
                 await wait_until(lambda: resource.waiter_count == 1 or waiter.done())
@@ -519,12 +519,12 @@ kind = 'tenant', capacity = 1
                 # The holder is gone. A free slot must eventually be granted.
 >               await asyncio.wait_for(asyncio.shield(waiter), 0.05)
 
-audits/test_boundary_contracts.py:233: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+audits/test_boundary_contracts.py:233:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 /opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/tasks.py:506: in wait_for
     async with timeouts.timeout(timeout):
                ^^^^^^^^^^^^^^^^^^^^^^^^^
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 self = <Timeout [expired]>
 exc_type = <class 'asyncio.exceptions.CancelledError'>
@@ -537,14 +537,14 @@ exc_val = CancelledError(), exc_tb = <traceback object at 0x108ae7180>
         exc_tb: Optional[TracebackType],
     ) -> Optional[bool]:
         assert self._state in (_State.ENTERED, _State.EXPIRING)
-    
+
         if self._timeout_handler is not None:
             self._timeout_handler.cancel()
             self._timeout_handler = None
-    
+
         if self._state is _State.EXPIRING:
             self._state = _State.EXPIRED
-    
+
             if self._task.uncancel() <= self._cancelling and exc_type is not None:
                 # Since there are no new cancel requests, we're
                 # handling this.
@@ -563,11 +563,11 @@ kind = 'tenant', capacity = 1
     async def test_release_eventually_runs_waiting_action(kind, capacity):
         effects = []
         async with contended_resource(kind, capacity) as (resource, acquire):
-    
+
             async def worker():
                 async with acquire("waiter"):
                     effects.append("ran")
-    
+
             async with acquire("holder"):
                 waiter = asyncio.create_task(worker())
                 await wait_until(lambda: resource.waiter_count == 1 or waiter.done())
@@ -588,18 +588,18 @@ fut = <Future cancelled>, timeout = 0.05
 
     async def wait_for(fut, timeout):
         """Wait for the single Future or coroutine to complete, with timeout.
-    
+
         Coroutine will be wrapped in Task.
-    
+
         Returns result of the Future or coroutine.  When a timeout occurs,
         it cancels the task and raises TimeoutError.  To avoid the task
         cancellation, wrap it in shield().
-    
+
         If the wait is cancelled, the task is also cancelled.
-    
+
         If the task suppresses the cancellation and returns a value instead,
         that value is returned.
-    
+
         This function is a coroutine.
         """
         # The special case for timeout <= 0 is for the following case:
@@ -619,20 +619,20 @@ fut = <Future cancelled>, timeout = 0.05
         #         assert False
         #
         # asyncio.run(test_waitfor())
-    
-    
+
+
         if timeout is not None and timeout <= 0:
             fut = ensure_future(fut)
-    
+
             if fut.done():
                 return fut.result()
-    
+
             await _cancel_and_wait(fut)
             try:
                 return fut.result()
             except exceptions.CancelledError as exc:
                 raise TimeoutError from exc
-    
+
         async with timeouts.timeout(timeout):
 >           return await fut
                    ^^^^^^^^^
@@ -649,11 +649,11 @@ kind = 'pool', capacity = 1
     async def test_release_eventually_runs_waiting_action(kind, capacity):
         effects = []
         async with contended_resource(kind, capacity) as (resource, acquire):
-    
+
             async def worker():
                 async with acquire("waiter"):
                     effects.append("ran")
-    
+
             async with acquire("holder"):
                 waiter = asyncio.create_task(worker())
                 await wait_until(lambda: resource.waiter_count == 1 or waiter.done())
@@ -661,12 +661,12 @@ kind = 'pool', capacity = 1
                 # The holder is gone. A free slot must eventually be granted.
 >               await asyncio.wait_for(asyncio.shield(waiter), 0.05)
 
-audits/test_boundary_contracts.py:233: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+audits/test_boundary_contracts.py:233:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 /opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/tasks.py:506: in wait_for
     async with timeouts.timeout(timeout):
                ^^^^^^^^^^^^^^^^^^^^^^^^^
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
 
 self = <Timeout [expired]>
 exc_type = <class 'asyncio.exceptions.CancelledError'>
@@ -679,14 +679,14 @@ exc_val = CancelledError(), exc_tb = <traceback object at 0x109258a40>
         exc_tb: Optional[TracebackType],
     ) -> Optional[bool]:
         assert self._state in (_State.ENTERED, _State.EXPIRING)
-    
+
         if self._timeout_handler is not None:
             self._timeout_handler.cancel()
             self._timeout_handler = None
-    
+
         if self._state is _State.EXPIRING:
             self._state = _State.EXPIRED
-    
+
             if self._task.uncancel() <= self._cancelling and exc_type is not None:
                 # Since there are no new cancel requests, we're
                 # handling this.
@@ -705,11 +705,11 @@ kind = 'pool', capacity = 1
     async def test_release_eventually_runs_waiting_action(kind, capacity):
         effects = []
         async with contended_resource(kind, capacity) as (resource, acquire):
-    
+
             async def worker():
                 async with acquire("waiter"):
                     effects.append("ran")
-    
+
             async with acquire("holder"):
                 waiter = asyncio.create_task(worker())
                 await wait_until(lambda: resource.waiter_count == 1 or waiter.done())
@@ -734,11 +734,11 @@ ________________________ test_tenant_timeout_is_honored ________________________
             mt.register_agent("tenant", Agent(aid))
             await mt.submit_task("tenant", aid, Task())
         effects = []
-    
+
         async def waiting():
             async with mt.acquire("tenant", "waiter", timeout=0.005):
                 effects.append("ran")
-    
+
         async with mt.acquire("tenant", "holder"):
             waiter = asyncio.create_task(waiting())
             try:

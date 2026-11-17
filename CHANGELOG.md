@@ -15,8 +15,6 @@ All notable changes to LOCO-Agent are documented in this file.
 - Tenant acquisitions claim distinct tasks, automatically dequeue executed
   attempts, and reject taskless execution. Active/waiting tenants cannot be
   unregistered. See `docs/concepts/multi-tenant.md` for migration details.
-
-
 - `wrap()` and `scheduled()` remove their own tasks on rejection, queued
   cancellation, and execution completion. Out-of-order finishes no longer
   remove another task or misattribute the next call's cost.
@@ -32,7 +30,7 @@ All notable changes to LOCO-Agent are documented in this file.
 - Optional `task=` binding on scheduler acquire APIs and identity-based task
   removal for integrations. See `docs/task-lifecycle.md` for callback migration.
 
-### Earlier enforcement fixes
+### Enforcement fixes
 
 - Concurrent acquisitions claim distinct queued tasks before waiting, so one
   action cannot reuse the labels or estimated cost of an already claimed task.
@@ -42,6 +40,10 @@ All notable changes to LOCO-Agent are documented in this file.
   callers rather than agent IDs, and distinguishes cancellation from a slot grant.
 - Custom policy `False` results now deny execution through both acquire APIs
   and `check_all()`. Non-boolean results fail with `TypeError`.
+- Budget policy subclasses continue receiving the original task, including its
+  labels and metadata, when admission checks run.
+- Repeated cancellation during failed admission cannot interrupt the wakeup
+  needed by the next scored waiter.
 
 ### Changed
 

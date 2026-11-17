@@ -25,13 +25,11 @@ even if task weight changes during execution. `spent()` remains settled spend;
 `summary()` adds a `reserved` field. Scheduler metrics still attribute estimated
 task weights; `budget.spent()` is the settled budget ledger, not token telemetry.
 
-Task submission and dequeueing remain caller/adapter responsibilities. Each
-acquisition claims the next unclaimed queued task when requested, then reserves
-its price at admission. This keeps a waiting call from borrowing another call's
-price after a rejection. Concurrent callers must still dequeue the correct task;
-the scheduler does not infer which application action belongs to a task. Pair
-submission and acquisition in the same order. This change does not redesign
-adapter task queues.
+Direct callers own task submission and dequeueing. Pass `task=task` to bind an
+acquisition to the exact submitted task, then remove that task by identity.
+Without `task=`, acquisition claims the next unclaimed queued task in submission
+order. Its price is reserved at admission. Convenience wrappers and the callback
+adapters handle their own task cleanup; see [Task lifecycle](task-lifecycle.md).
 
 ## Reconcile a known charge
 
@@ -43,24 +41,29 @@ from loco import AsyncLOCOScheduler, BudgetManager, SharedResource, Task
 
 budget = BudgetManager(default_limit=10)
 scheduler = AsyncLOCOScheduler([], SharedResource("provider", capacity=4), budget=budget)
-await scheduler.submit_task("research", Task(weight=5))
+task = Task(weight=5)
+await scheduler.submit_task("research", task)
 
-async with scheduler.acquire("research") as handle:
-    scheduler.get_agent("research").serve_oldest_task()
-    result = await call_provider()  # application's provider function
-    handle.set_actual_cost(result.verified_charge_in_budget_units)
+async with scheduler.acquire("research", task=task) as handle:
+    try:
+        result = await call_provider()  # application's provider function
+        handle.set_actual_cost(result.verified_charge_in_budget_units)
+    finally:
+        scheduler.get_agent("research").remove_task(task, completed=True)
 ```
 
 For split callbacks, release in a `finally` block:
 
 ```python
-handle = await scheduler.acquire_start("research")
+task = Task(weight=5)
+await scheduler.submit_task("research", task)
+handle = await scheduler.acquire_start("research", task=task)
 actual_cost = None
 try:
-    scheduler.get_agent("research").serve_oldest_task()
     result = await call_provider()
     actual_cost = result.verified_charge_in_budget_units
 finally:
+    scheduler.get_agent("research").remove_task(task, completed=True)
     await scheduler.release_handle(handle, actual_cost=actual_cost)
 ```
 
@@ -100,8 +103,9 @@ external charge; it does not replace reservation-based admission.
 
 `alert` and `downgrade` modes remain intentionally permissive. Empty task queues
 still take the legacy taskless acquisition path and are not priced or budgeted.
-Calls outside LOCO remain outside enforcement. These limitations, multi-tenant
-scheduling, and distributed enforcement are not resolved by this change.
+Calls outside LOCO remain outside enforcement. Tenant accounting uses a separate
+admission ledger described in [Resource lifecycle](resource-lifecycle.md).
+Neither ledger provides distributed enforcement.
 
 ## Policy decisions and shutdown
 
