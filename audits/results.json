@@ -1,0 +1,99 @@
+{
+  "source_commit": "5005be974dd9e168f0b4783aeb488e1056294784",
+  "python": "3.13.15",
+  "repetitions": 20,
+  "source_sha256": {
+    "loco/convenience.py": "471cf4b65d0a6c0bb46eddfb33a4843211f1ea3ecf0c3fc2d0932ea45e187343",
+    "loco/tenant.py": "8be970005e65a9dc555872c0da9bc714b80348c7964b0c88bf0c50c47082b0f1",
+    "loco/multi_resource.py": "026ac5a7c785ba40d23b0e2c7fe4d65a6603961a5c64175d04215a95bac8c571",
+    "loco/adapters/langchain.py": "58c10326d72b490b0ff359bc334c82e63f565e73bf1dc0880137c008870318a1",
+    "loco/adapters/google_adk.py": "8918e1ee3886535998b1175502113611dfb7ed6766826d323fe72b1f03efe97a",
+    "loco/adapters/crewai.py": "7341e9c7d8d1d9fd591705a8335748f54afc20875b82512c0f83254ba5a4f685"
+  },
+  "results": {
+    "test_rejected_wrapper_does_not_poison_next_admission[False-wrap]": {
+      "passed": 20
+    },
+    "test_rejected_wrapper_does_not_poison_next_admission[False-scheduled]": {
+      "passed": 20
+    },
+    "test_rejected_wrapper_does_not_poison_next_admission[True-wrap]": {
+      "failed": 20
+    },
+    "test_rejected_wrapper_does_not_poison_next_admission[True-scheduled]": {
+      "failed": 20
+    },
+    "test_out_of_order_completion_does_not_change_later_task_price[False-wrap]": {
+      "passed": 20
+    },
+    "test_out_of_order_completion_does_not_change_later_task_price[False-scheduled]": {
+      "passed": 20
+    },
+    "test_out_of_order_completion_does_not_change_later_task_price[True-wrap]": {
+      "failed": 20
+    },
+    "test_out_of_order_completion_does_not_change_later_task_price[True-scheduled]": {
+      "failed": 20
+    },
+    "test_cancelled_waiting_wrapper_removes_only_its_own_task[wrap]": {
+      "failed": 20
+    },
+    "test_cancelled_waiting_wrapper_removes_only_its_own_task[scheduled]": {
+      "failed": 20
+    },
+    "test_callback_overlap_does_not_lose_handles[False-langchain]": {
+      "passed": 20
+    },
+    "test_callback_overlap_does_not_lose_handles[False-adk]": {
+      "passed": 20
+    },
+    "test_callback_overlap_does_not_lose_handles[False-crewai]": {
+      "passed": 20
+    },
+    "test_callback_overlap_does_not_lose_handles[True-langchain]": {
+      "failed": 20
+    },
+    "test_callback_overlap_does_not_lose_handles[True-adk]": {
+      "failed": 20
+    },
+    "test_callback_overlap_does_not_lose_handles[True-crewai]": {
+      "failed": 20
+    },
+    "test_release_eventually_runs_waiting_action[1-tenant]": {
+      "failed": 20
+    },
+    "test_release_eventually_runs_waiting_action[1-pool]": {
+      "failed": 20
+    },
+    "test_release_eventually_runs_waiting_action[2-tenant]": {
+      "passed": 20
+    },
+    "test_release_eventually_runs_waiting_action[2-pool]": {
+      "passed": 20
+    },
+    "test_tenant_timeout_is_honored": {
+      "failed": 20
+    },
+    "test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue[False]": {
+      "passed": 20
+    },
+    "test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue[True]": {
+      "failed": 20
+    }
+  },
+  "first_failure_messages": {
+    "test_rejected_wrapper_does_not_poison_next_admission[True-wrap]": "loco.budget.BudgetExceededError: Policy 'budget' violated by agent 'a': current=0.0 + task=3.0 > limit=2.0",
+    "test_rejected_wrapper_does_not_poison_next_admission[True-scheduled]": "loco.budget.BudgetExceededError: Policy 'budget' violated by agent 'a': current=0.0 + task=3.0 > limit=2.0",
+    "test_out_of_order_completion_does_not_change_later_task_price[True-wrap]": "AssertionError: {'recorded_spend': 12.0, 'submitted_weights': [2, 5, 1]}\nassert 12.0 == 8\n +  where 12.0 = spent('a')\n +    where spent = <loco.budget.BudgetPolicy object at 0x108b3c270>.spent\n +      where <loco.budget.BudgetPolicy object at 0x108b3c270> = <loco.async_scheduler.AsyncLOCOScheduler object at 0x108b3c490>.budget\n +  and   8 = sum([2, 5, 1])",
+    "test_out_of_order_completion_does_not_change_later_task_price[True-scheduled]": "AssertionError: {'recorded_spend': 12.0, 'submitted_weights': [2, 5, 1]}\nassert 12.0 == 8\n +  where 12.0 = spent('a')\n +    where spent = <loco.budget.BudgetPolicy object at 0x108b3c050>.spent\n +      where <loco.budget.BudgetPolicy object at 0x108b3c050> = <loco.async_scheduler.AsyncLOCOScheduler object at 0x108b3ce20>.budget\n +  and   8 = sum([2, 5, 1])",
+    "test_cancelled_waiting_wrapper_removes_only_its_own_task[wrap]": "AssertionError: Cancelled request remains queued\nassert [Task(task_id..., model=None)] == []\n  \n  Left contains one more item: Task(task_id='ad1846a296e3', weight=5, arrival_tick=0, age=1, task_type='default', labels=None, session_id=None, team=None, workflow=None, model=None)\n  Use -v to get more diff",
+    "test_cancelled_waiting_wrapper_removes_only_its_own_task[scheduled]": "AssertionError: Cancelled request remains queued\nassert [Task(task_id..., model=None)] == []\n  \n  Left contains one more item: Task(task_id='81b5e728b709', weight=5, arrival_tick=0, age=1, task_type='default', labels=None, session_id=None, team=None, workflow=None, model=None)\n  Use -v to get more diff",
+    "test_callback_overlap_does_not_lose_handles[True-langchain]": "AssertionError: {'holders': 1, 'reserved': 1.0, 'settled': 1.0}\nassert (1, 1.0, 1.0) == (0, 0, 2)\n  \n  At index 0 diff: 1 != 0\n  Use -v to get more diff",
+    "test_callback_overlap_does_not_lose_handles[True-adk]": "AssertionError: {'holders': 1, 'reserved': 1.0, 'settled': 1.0}\nassert (1, 1.0, 1.0) == (0, 0, 2)\n  \n  At index 0 diff: 1 != 0\n  Use -v to get more diff",
+    "test_callback_overlap_does_not_lose_handles[True-crewai]": "AssertionError: {'holders': 1, 'reserved': 1.0, 'settled': 1.0}\nassert (1, 1.0, 1.0) == (0, 0, 2)\n  \n  At index 0 diff: 1 != 0\n  Use -v to get more diff",
+    "test_release_eventually_runs_waiting_action[1-tenant]": "Failed: No progress after release: holders=0, waiters=1",
+    "test_release_eventually_runs_waiting_action[1-pool]": "Failed: No progress after release: holders=0, waiters=1",
+    "test_tenant_timeout_is_honored": "AssertionError: Tenant timeout was ignored; caller still waiting\nassert <Task pending name='Task-110' coro=<test_tenant_timeout_is_honored.<locals>.waiting() running at /private/tmp/loco-enforcement-boundary-audit/audits/test_boundary_contracts.py:253> wait_for=<Future pending cb=[Task.task_wakeup()]>> in set()",
+    "test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue[True]": "Failed: DID NOT RAISE <class 'loco.tenant.TenantCostExceededError'>"
+  }
+}
