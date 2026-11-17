@@ -43,3 +43,19 @@ qa_llm = ChatOpenAI(callbacks=[qa_callback])
 ```
 
 Both agents compete through the same scheduler.
+
+## Invocation ownership
+
+Start, end, and error callbacks are paired by `run_id`. Overlapping runs for the
+same LOCO agent retain separate handles and tasks. Completion order does not
+change their ownership; duplicate completion of an inactive ID does nothing.
+Unknown IDs never release another run. An identified start requires the same ID
+on completion; a missing ID raises `ValueError` while identified work is active.
+
+The ID comes from LangChain's [callback contract](https://reference.langchain.com/python/langchain-core/callbacks/base/AsyncCallbackHandler/on_llm_start).
+Direct calls without `run_id` still work sequentially; overlapping unidentified
+starts raise `RuntimeError` before enqueueing another task. Supply unique run IDs
+for concurrent calls, and ensure every admitted call gets an end/error callback,
+including cancellation. Cancelling a pending start cleans up its own task.
+
+See [Lifecycle guarantees](../task-lifecycle.md) for scope and test coverage.

@@ -1,0 +1,333 @@
+FF..F.F                                                                  [100%]
+=================================== FAILURES ===================================
+____________ test_release_eventually_runs_waiting_action[1-tenant] _____________
+
+fut = <Future cancelled>, timeout = 0.05
+
+    async def wait_for(fut, timeout):
+        """Wait for the single Future or coroutine to complete, with timeout.
+    
+        Coroutine will be wrapped in Task.
+    
+        Returns result of the Future or coroutine.  When a timeout occurs,
+        it cancels the task and raises TimeoutError.  To avoid the task
+        cancellation, wrap it in shield().
+    
+        If the wait is cancelled, the task is also cancelled.
+    
+        If the task suppresses the cancellation and returns a value instead,
+        that value is returned.
+    
+        This function is a coroutine.
+        """
+        # The special case for timeout <= 0 is for the following case:
+        #
+        # async def test_waitfor():
+        #     func_started = False
+        #
+        #     async def func():
+        #         nonlocal func_started
+        #         func_started = True
+        #
+        #     try:
+        #         await asyncio.wait_for(func(), 0)
+        #     except asyncio.TimeoutError:
+        #         assert not func_started
+        #     else:
+        #         assert False
+        #
+        # asyncio.run(test_waitfor())
+    
+    
+        if timeout is not None and timeout <= 0:
+            fut = ensure_future(fut)
+    
+            if fut.done():
+                return fut.result()
+    
+            await _cancel_and_wait(fut)
+            try:
+                return fut.result()
+            except exceptions.CancelledError as exc:
+                raise TimeoutError from exc
+    
+        async with timeouts.timeout(timeout):
+>           return await fut
+                   ^^^^^^^^^
+E           asyncio.exceptions.CancelledError
+
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/tasks.py:507: CancelledError
+
+The above exception was the direct cause of the following exception:
+
+kind = 'tenant', capacity = 1
+
+    @pytest.mark.parametrize("kind", ["tenant", "pool"])
+    @pytest.mark.parametrize("capacity", [1, 2])
+    async def test_release_eventually_runs_waiting_action(kind, capacity):
+        effects = []
+        async with contended_resource(kind, capacity) as (resource, acquire):
+    
+            async def worker():
+                async with acquire("waiter"):
+                    effects.append("ran")
+    
+            async with acquire("holder"):
+                waiter = asyncio.create_task(worker())
+                await wait_until(lambda: resource.waiter_count == 1 or waiter.done())
+            try:
+                # The holder is gone. A free slot must eventually be granted.
+>               await asyncio.wait_for(asyncio.shield(waiter), 0.05)
+
+audits/test_boundary_contracts.py:58: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/tasks.py:506: in wait_for
+    async with timeouts.timeout(timeout):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Timeout [expired]>
+exc_type = <class 'asyncio.exceptions.CancelledError'>
+exc_val = CancelledError(), exc_tb = <traceback object at 0x106b722c0>
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> Optional[bool]:
+        assert self._state in (_State.ENTERED, _State.EXPIRING)
+    
+        if self._timeout_handler is not None:
+            self._timeout_handler.cancel()
+            self._timeout_handler = None
+    
+        if self._state is _State.EXPIRING:
+            self._state = _State.EXPIRED
+    
+            if self._task.uncancel() <= self._cancelling and exc_type is not None:
+                # Since there are no new cancel requests, we're
+                # handling this.
+                if issubclass(exc_type, exceptions.CancelledError):
+>                   raise TimeoutError from exc_val
+E                   TimeoutError
+
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/timeouts.py:117: TimeoutError
+
+During handling of the above exception, another exception occurred:
+
+kind = 'tenant', capacity = 1
+
+    @pytest.mark.parametrize("kind", ["tenant", "pool"])
+    @pytest.mark.parametrize("capacity", [1, 2])
+    async def test_release_eventually_runs_waiting_action(kind, capacity):
+        effects = []
+        async with contended_resource(kind, capacity) as (resource, acquire):
+    
+            async def worker():
+                async with acquire("waiter"):
+                    effects.append("ran")
+    
+            async with acquire("holder"):
+                waiter = asyncio.create_task(worker())
+                await wait_until(lambda: resource.waiter_count == 1 or waiter.done())
+            try:
+                # The holder is gone. A free slot must eventually be granted.
+                await asyncio.wait_for(asyncio.shield(waiter), 0.05)
+            except TimeoutError:
+                observed = (resource.holder_count, resource.waiter_count)
+                waiter.cancel()
+                await asyncio.gather(waiter, return_exceptions=True)
+>               pytest.fail(f"No progress after release: holders={observed[0]}, waiters={observed[1]}")
+E               Failed: No progress after release: holders=0, waiters=1
+
+audits/test_boundary_contracts.py:63: Failed
+_____________ test_release_eventually_runs_waiting_action[1-pool] ______________
+
+fut = <Future cancelled>, timeout = 0.05
+
+    async def wait_for(fut, timeout):
+        """Wait for the single Future or coroutine to complete, with timeout.
+    
+        Coroutine will be wrapped in Task.
+    
+        Returns result of the Future or coroutine.  When a timeout occurs,
+        it cancels the task and raises TimeoutError.  To avoid the task
+        cancellation, wrap it in shield().
+    
+        If the wait is cancelled, the task is also cancelled.
+    
+        If the task suppresses the cancellation and returns a value instead,
+        that value is returned.
+    
+        This function is a coroutine.
+        """
+        # The special case for timeout <= 0 is for the following case:
+        #
+        # async def test_waitfor():
+        #     func_started = False
+        #
+        #     async def func():
+        #         nonlocal func_started
+        #         func_started = True
+        #
+        #     try:
+        #         await asyncio.wait_for(func(), 0)
+        #     except asyncio.TimeoutError:
+        #         assert not func_started
+        #     else:
+        #         assert False
+        #
+        # asyncio.run(test_waitfor())
+    
+    
+        if timeout is not None and timeout <= 0:
+            fut = ensure_future(fut)
+    
+            if fut.done():
+                return fut.result()
+    
+            await _cancel_and_wait(fut)
+            try:
+                return fut.result()
+            except exceptions.CancelledError as exc:
+                raise TimeoutError from exc
+    
+        async with timeouts.timeout(timeout):
+>           return await fut
+                   ^^^^^^^^^
+E           asyncio.exceptions.CancelledError
+
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/tasks.py:507: CancelledError
+
+The above exception was the direct cause of the following exception:
+
+kind = 'pool', capacity = 1
+
+    @pytest.mark.parametrize("kind", ["tenant", "pool"])
+    @pytest.mark.parametrize("capacity", [1, 2])
+    async def test_release_eventually_runs_waiting_action(kind, capacity):
+        effects = []
+        async with contended_resource(kind, capacity) as (resource, acquire):
+    
+            async def worker():
+                async with acquire("waiter"):
+                    effects.append("ran")
+    
+            async with acquire("holder"):
+                waiter = asyncio.create_task(worker())
+                await wait_until(lambda: resource.waiter_count == 1 or waiter.done())
+            try:
+                # The holder is gone. A free slot must eventually be granted.
+>               await asyncio.wait_for(asyncio.shield(waiter), 0.05)
+
+audits/test_boundary_contracts.py:58: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/tasks.py:506: in wait_for
+    async with timeouts.timeout(timeout):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Timeout [expired]>
+exc_type = <class 'asyncio.exceptions.CancelledError'>
+exc_val = CancelledError(), exc_tb = <traceback object at 0x106c41e80>
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> Optional[bool]:
+        assert self._state in (_State.ENTERED, _State.EXPIRING)
+    
+        if self._timeout_handler is not None:
+            self._timeout_handler.cancel()
+            self._timeout_handler = None
+    
+        if self._state is _State.EXPIRING:
+            self._state = _State.EXPIRED
+    
+            if self._task.uncancel() <= self._cancelling and exc_type is not None:
+                # Since there are no new cancel requests, we're
+                # handling this.
+                if issubclass(exc_type, exceptions.CancelledError):
+>                   raise TimeoutError from exc_val
+E                   TimeoutError
+
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/timeouts.py:117: TimeoutError
+
+During handling of the above exception, another exception occurred:
+
+kind = 'pool', capacity = 1
+
+    @pytest.mark.parametrize("kind", ["tenant", "pool"])
+    @pytest.mark.parametrize("capacity", [1, 2])
+    async def test_release_eventually_runs_waiting_action(kind, capacity):
+        effects = []
+        async with contended_resource(kind, capacity) as (resource, acquire):
+    
+            async def worker():
+                async with acquire("waiter"):
+                    effects.append("ran")
+    
+            async with acquire("holder"):
+                waiter = asyncio.create_task(worker())
+                await wait_until(lambda: resource.waiter_count == 1 or waiter.done())
+            try:
+                # The holder is gone. A free slot must eventually be granted.
+                await asyncio.wait_for(asyncio.shield(waiter), 0.05)
+            except TimeoutError:
+                observed = (resource.holder_count, resource.waiter_count)
+                waiter.cancel()
+                await asyncio.gather(waiter, return_exceptions=True)
+>               pytest.fail(f"No progress after release: holders={observed[0]}, waiters={observed[1]}")
+E               Failed: No progress after release: holders=0, waiters=1
+
+audits/test_boundary_contracts.py:63: Failed
+________________________ test_tenant_timeout_is_honored ________________________
+
+    async def test_tenant_timeout_is_honored():
+        resource = SharedResource("local", 1)
+        mt = MultiTenantScheduler(resource)
+        mt.register_tenant("tenant")
+        for aid in ("holder", "waiter"):
+            mt.register_agent("tenant", Agent(aid))
+            await mt.submit_task("tenant", aid, Task())
+        effects = []
+    
+        async def waiting():
+            async with mt.acquire("tenant", "waiter", timeout=0.005):
+                effects.append("ran")
+    
+        async with mt.acquire("tenant", "holder"):
+            waiter = asyncio.create_task(waiting())
+            try:
+                # Outer watchdog is deliberately distinct from the API timeout.
+                done, _ = await asyncio.wait([waiter], timeout=0.05)
+>               assert waiter in done, "Tenant timeout was ignored; caller still waiting"
+E               AssertionError: Tenant timeout was ignored; caller still waiting
+E               assert <Task pending name='Task-20' coro=<test_tenant_timeout_is_honored.<locals>.waiting() running at /private/tmp/loco-task-callback-lifecycle/audits/test_boundary_contracts.py:78> wait_for=<Future pending cb=[Task.task_wakeup()]>> in set()
+
+audits/test_boundary_contracts.py:86: AssertionError
+____ test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue[True] _____
+
+preloaded = True
+
+    @pytest.mark.parametrize("preloaded", [False, True])
+    async def test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue(preloaded):
+        mt = MultiTenantScheduler(SharedResource("local", 1))
+        mt.register_tenant("tenant", cost_ceiling=1)
+        task = Task(weight=2)
+        mt.register_agent("tenant", Agent("a", tasks=[task] if preloaded else []))
+        effects = []
+>       with pytest.raises(TenantCostExceededError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'loco.tenant.TenantCostExceededError'>
+
+audits/test_boundary_contracts.py:103: Failed
+=========================== short test summary info ============================
+FAILED audits/test_boundary_contracts.py::test_release_eventually_runs_waiting_action[1-tenant]
+FAILED audits/test_boundary_contracts.py::test_release_eventually_runs_waiting_action[1-pool]
+FAILED audits/test_boundary_contracts.py::test_tenant_timeout_is_honored - As...
+FAILED audits/test_boundary_contracts.py::test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue[True]
+4 failed, 3 passed in 0.21s

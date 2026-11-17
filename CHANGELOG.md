@@ -6,6 +6,23 @@ All notable changes to LOCO-Agent are documented in this file.
 
 ### Fixed
 
+- `wrap()` and `scheduled()` remove their own tasks on rejection, queued
+  cancellation, and execution completion. Out-of-order finishes no longer
+  remove another task or misattribute the next call's cost.
+- LangChain, ADK, and CrewAI callback adapters retain handles per invocation.
+  Unidentified overlapping starts are rejected before enqueueing. Error and
+  duplicate completion paths clean up only their matching tasks and handles.
+- ADK callbacks accept the documented `callback_context` keyword. Error cleanup
+  hooks are available for ADK model calls and CrewAI steps.
+- Coarse CrewAI execution cleans up tasks when kickoff fails.
+
+### Added
+
+- Optional `task=` binding on scheduler acquire APIs and identity-based task
+  removal for integrations. See `docs/task-lifecycle.md` for callback migration.
+
+### Earlier enforcement fixes
+
 - Concurrent acquisitions claim distinct queued tasks before waiting, so one
   action cannot reuse the labels or estimated cost of an already claimed task.
 - Budget admission atomically reserves in-flight commitments and settles them

@@ -35,7 +35,6 @@ class TestLangChainAdapter:
             ["What is the meaning of life?"],
         )
         assert sched.resource.is_holding("rag")
-        assert cb._handle is not None
         await cb.on_llm_end("response")
 
     @pytest.mark.asyncio
@@ -48,7 +47,6 @@ class TestLangChainAdapter:
         )
         await cb.on_llm_end("response")
         assert not sched.resource.is_holding("rag")
-        assert cb._handle is None
 
     @pytest.mark.asyncio
     async def test_auto_registers_agent(self):

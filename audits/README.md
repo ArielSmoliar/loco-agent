@@ -1,3 +1,17 @@
+# Current status
+
+Task cleanup and callback ownership now have required regressions in
+`tests/test_task_callback_lifecycle.py`. They are fixed on
+`codex/task-callback-lifecycle`. CrewAI overlap now requires distinct explicit
+invocation IDs; unidentified overlap is rejected before admission.
+
+The explicit audit file now contains only the seven remaining tenant/resource-pool
+variants. Its runner writes `remaining-results.json` and a matching `.log`, leaving
+`results.json` and `first-run.log` below as the original pre-fix evidence.
+The tenant/resource-pool findings are still open. See `docs/task-lifecycle.md`.
+
+---
+
 # LOCO public-API boundary audit
 
 Investigated 2026-11-17 against `5005be9`, which already contains the four fixes

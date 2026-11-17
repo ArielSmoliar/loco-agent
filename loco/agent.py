@@ -52,3 +52,17 @@ class Agent:
         self.tasks.remove(oldest)
         self.completed_tasks.append(oldest)
         return oldest
+
+    def remove_task(self, task: Task, *, completed: bool = False) -> Task | None:
+        """Remove this exact task once, without touching an equal or older task.
+
+        Wrappers use completed=True for actions that started (including errors).
+        Rejected or cancelled admissions are removed without claiming completion.
+        """
+        for index, pending in enumerate(self.tasks):
+            if pending is task:
+                self.tasks.pop(index)
+                if completed:
+                    self.completed_tasks.append(task)
+                return task
+        return None

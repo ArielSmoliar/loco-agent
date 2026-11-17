@@ -1,0 +1,43 @@
+{
+  "source_commit": "34daa96f9ede1165ce92bae7038b663415620812",
+  "python": "3.13.15",
+  "repetitions": 1,
+  "source_sha256": {
+    "loco/convenience.py": "eb280a087e0aa47456da862d8c4f9d2b999401f50510b112fe27115fa3ecd93e",
+    "loco/tenant.py": "8be970005e65a9dc555872c0da9bc714b80348c7964b0c88bf0c50c47082b0f1",
+    "loco/multi_resource.py": "026ac5a7c785ba40d23b0e2c7fe4d65a6603961a5c64175d04215a95bac8c571",
+    "loco/adapters/langchain.py": "58a98419801b4bdaced1babe3a1d7fb4bef9b3f16e1fea940044dcacc96846b8",
+    "loco/adapters/google_adk.py": "8945cdcedf2bc06540b663fb859e65c8dd28894e550d3439d643fe5d7e791751",
+    "loco/adapters/crewai.py": "f6913790dcbee4f4d31342a04fb8436b4cc976fd4f552cb1c96cd5aa396ac856"
+  },
+  "results": {
+    "test_release_eventually_runs_waiting_action[1-tenant]": {
+      "failed": 1
+    },
+    "test_release_eventually_runs_waiting_action[1-pool]": {
+      "failed": 1
+    },
+    "test_release_eventually_runs_waiting_action[2-tenant]": {
+      "passed": 1
+    },
+    "test_release_eventually_runs_waiting_action[2-pool]": {
+      "passed": 1
+    },
+    "test_tenant_timeout_is_honored": {
+      "failed": 1
+    },
+    "test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue[False]": {
+      "passed": 1
+    },
+    "test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue[True]": {
+      "failed": 1
+    }
+  },
+  "first_failure_messages": {
+    "test_release_eventually_runs_waiting_action[1-tenant]": "Failed: No progress after release: holders=0, waiters=1",
+    "test_release_eventually_runs_waiting_action[1-pool]": "Failed: No progress after release: holders=0, waiters=1",
+    "test_tenant_timeout_is_honored": "AssertionError: Tenant timeout was ignored; caller still waiting\nassert <Task pending name='Task-20' coro=<test_tenant_timeout_is_honored.<locals>.waiting() running at /private/tmp/loco-task-callback-lifecycle/audits/test_boundary_contracts.py:78> wait_for=<Future pending cb=[Task.task_wakeup()]>> in set()",
+    "test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue[True]": "Failed: DID NOT RAISE <class 'loco.tenant.TenantCostExceededError'>"
+  },
+  "source_dirty": true
+}

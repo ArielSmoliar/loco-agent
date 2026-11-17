@@ -209,7 +209,7 @@ class AsyncLOCOScheduler:
 
     @asynccontextmanager
     async def acquire(
-        self, agent_id: str, *, timeout: float | None = None
+        self, agent_id: str, *, timeout: float | None = None, task: Task | None = None
     ) -> AsyncIterator[AcquireHandle]:
         """Acquire a slot and reserve budget; settle and release on every exit.
 
@@ -218,7 +218,7 @@ class AsyncLOCOScheduler:
         fails/cancels without a verified charge, settle the reserved estimate rather
         than silently refunding potentially billable work.
         """
-        handle = await self.acquire_start(agent_id, timeout=timeout)
+        handle = await self.acquire_start(agent_id, timeout=timeout, task=task)
         handle._track_trust = True
         try:
             yield handle
@@ -228,16 +228,27 @@ class AsyncLOCOScheduler:
         finally:
             await self.release_handle(handle)
 
-    async def acquire_start(self, agent_id: str, *, timeout: float | None = None) -> AcquireHandle:
+    async def acquire_start(
+        self, agent_id: str, *, timeout: float | None = None, task: Task | None = None
+    ) -> AcquireHandle:
         """Admit a call and atomically reserve each budget before returning a handle.
 
         A failed admission rolls back reservations. Split-API callers must always
         release returned handles in a finally block, including after cancellation.
+        Pass task= to bind an acquisition to an exact submitted task. Without it,
+        the next unclaimed queued task is selected for backward compatibility.
         """
         if self._shutting_down:
             raise ShutdownError("Scheduler is shutting down")
         agent = self.get_agent(agent_id)
-        serving_task = next((t for t in agent.tasks if id(t) not in self._task_claims), None)
+        if task is not None:
+            if not any(pending is task for pending in agent.tasks):
+                raise ValueError("Task is not queued for this agent")
+            if id(task) in self._task_claims:
+                raise ValueError("Task already has an acquisition")
+            serving_task = task
+        else:
+            serving_task = next((t for t in agent.tasks if id(t) not in self._task_claims), None)
         if agent.tasks and serving_task is None:
             raise ValueError("Every queued task already has an acquisition; submit a new task")
         handle = AcquireHandle(agent_id=agent_id, _owner=self, _serving_task=serving_task)

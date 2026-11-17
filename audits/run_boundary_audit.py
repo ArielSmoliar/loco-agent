@@ -13,7 +13,7 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--repetitions", type=int, default=20)
-parser.add_argument("--output", type=Path, default=Path("audits/results.json"))
+parser.add_argument("--output", type=Path, default=Path("audits/remaining-results.json"))
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 results = defaultdict(Counter)
@@ -38,8 +38,8 @@ for iteration in range(args.repetitions):
         if run.returncode not in (0, 1) or not xml.exists():
             raise RuntimeError(run.stdout + run.stderr)
         cases = ET.parse(xml).findall(".//testcase")
-        if len(cases) != 23:
-            raise RuntimeError(f"Expected 23 cases, got {len(cases)}")
+        if len(cases) != 7:
+            raise RuntimeError(f"Expected 7 cases, got {len(cases)}")
         for case in cases:
             name = case.attrib["name"]
             failure = case.find("failure")
@@ -50,7 +50,7 @@ for iteration in range(args.repetitions):
             if failure is not None:
                 first_failures.setdefault(name, failure.attrib.get("message", ""))
         if iteration == 0:
-            (root / "audits/first-run.log").write_text(run.stdout + run.stderr)
+            args.output.with_suffix(".log").write_text(run.stdout + run.stderr)
 files = [
     "loco/convenience.py",
     "loco/tenant.py",
@@ -63,6 +63,9 @@ report = {
     "source_commit": subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=root, text=True
     ).strip(),
+    "source_dirty": subprocess.run(
+        ["git", "diff", "--quiet", "HEAD", "--", "loco"], cwd=root
+    ).returncode != 0,
     "python": platform.python_version(),
     "repetitions": args.repetitions,
     "source_sha256": {f: hashlib.sha256((root / f).read_bytes()).hexdigest() for f in files},
