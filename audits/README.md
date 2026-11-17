@@ -1,8 +1,8 @@
 # Current status
 
-All findings from this bounded audit now have fixes and required regression
-coverage on `codex/tenant-resource-lifecycle` (building on the enforcement and
-callback lifecycle fixes). This is a local branch, not a published release.
+All findings from this bounded audit have fixes and required regression coverage
+included in the 0.4.1 source. The historical reports below describe the earlier
+investigation branches and pre-fix behavior.
 
 - Task/callback cases: `tests/test_task_callback_lifecycle.py`.
 - Tenant/resource-pool cases: `tests/test_tenant_resource_regressions.py`.

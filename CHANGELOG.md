@@ -2,7 +2,12 @@
 
 All notable changes to LOCO-Agent are documented in this file.
 
-## Unreleased
+## v0.4.1 -- 2026-11-17
+
+Concurrency and lifecycle correctness fixes. Before upgrading, custom policies
+must explicitly return a boolean (`False` denies); tenant acquisitions now require
+a queued task and remove executed attempts automatically. Concurrent callback
+calls need matching invocation IDs. See the migration guides linked below.
 
 ### Fixed
 
