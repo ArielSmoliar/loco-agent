@@ -5,7 +5,9 @@ description: "Schedule CrewAI agent calls with LOCO-Agent"
 
 # CrewAI Adapter
 
-Per-step scheduling via `step_callback` and coarse-grained crew-level scheduling.
+Explicit before/after step hooks and coarse-grained crew-level scheduling. Your
+integration must call the hooks around the action; a completion-only callback
+cannot stop an action before it starts.
 
 ## Setup
 
@@ -22,9 +24,14 @@ adapter = CrewAIAdapter(scheduler)
 ### Per-Step (fine-grained)
 
 ```python
-adapter.before_step("researcher", role="researcher")
-# ... step executes ...
-adapter.after_step("researcher")
+from uuid import uuid4
+
+step_id = uuid4().hex
+await adapter.before_step("researcher", invocation_id=step_id)
+try:
+    await run_step()  # your application's step execution
+finally:
+    await adapter.after_step("researcher", invocation_id=step_id)
 ```
 
 ### Crew-Level (coarse-grained)
@@ -44,3 +51,17 @@ result = await adapter.run_crew(crew, task_descriptions=["research", "analyze", 
 | Unknown | 2.0 (default) |
 
 Custom role weights can be passed to the adapter constructor.
+
+## Invocation ownership
+
+Use a distinct `invocation_id` for overlapping calls with the same role. End and
+error hooks must use the same ID. `on_step_error(role, error, invocation_id=...)`
+also releases the matching call. Duplicate completions for inactive IDs are
+no-ops; an unknown ID never releases another call.
+
+Existing calls without IDs remain sequential-only. An overlapping unidentified
+start raises `RuntimeError` before it can overwrite a handle. IDs must not be
+reused while late terminal callbacks for an earlier call could still arrive.
+
+`run_crew()` now also cleans up the exact submitted task on kickoff errors or
+admission rejection. See [Lifecycle guarantees](../task-lifecycle.md).

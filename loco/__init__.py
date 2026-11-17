@@ -3,7 +3,7 @@
 from loco.adaptive import AdaptiveAlphaTuner
 from loco.agent import Agent
 from loco.async_scheduler import AcquireHandle, AsyncLOCOScheduler, BackpressureError, ShutdownError
-from loco.budget import BudgetExceededError, BudgetManager, BudgetPolicy
+from loco.budget import BudgetExceededError, BudgetManager, BudgetPolicy, BudgetReservation
 from loco.convenience import (
     configure,
     enable_prometheus,
@@ -46,6 +46,7 @@ __all__ = [
     "BudgetManager",
     "BudgetPolicy",
     "BudgetExceededError",
+    "BudgetReservation",
     # Policy engine (v0.3)
     "Policy",
     "PolicyEnforcer",

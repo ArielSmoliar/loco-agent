@@ -31,6 +31,7 @@ from typing import Any, Callable, TypeVar
 
 from loco.async_scheduler import AsyncLOCOScheduler
 from loco.budget import BudgetManager
+from loco.lifecycle import scheduled_task
 from loco.resource import SharedResource
 from loco.task import Task
 
@@ -139,17 +140,8 @@ async def wrap(
     """
     scheduler = get_scheduler()
     task = Task(weight=weight)
-    await scheduler.submit_task(agent_id, task)
-
-    async with scheduler.acquire(agent_id):
-        try:
-            result = await fn(**kwargs)
-        finally:
-            # Always dequeue, even on error, to prevent task queue buildup
-            agent = scheduler.get_agent(agent_id)
-            agent.serve_oldest_task()
-
-    return result
+    async with scheduled_task(scheduler, agent_id, task):
+        return await fn(**kwargs)
 
 
 def scheduled(
@@ -174,16 +166,8 @@ def scheduled(
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             scheduler = get_scheduler()
             task = Task(weight=weight)
-            await scheduler.submit_task(agent_id, task)
-
-            async with scheduler.acquire(agent_id):
-                try:
-                    result = await fn(*args, **kwargs)
-                finally:
-                    agent = scheduler.get_agent(agent_id)
-                    agent.serve_oldest_task()
-
-            return result
+            async with scheduled_task(scheduler, agent_id, task):
+                return await fn(*args, **kwargs)
 
         return wrapper
 

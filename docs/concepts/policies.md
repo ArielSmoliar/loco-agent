@@ -33,15 +33,15 @@ scheduler = AsyncLOCOScheduler(
 Policies are checked **after** the resource is acquired but **before** work executes -- the same point where budget checks ran in v0.2. The enforcer evaluates policies in order and short-circuits on the first rejection:
 
 1. Agent wins a resource slot via L(i) scoring
-2. PolicyEnforcer runs each policy's `check()` in order
-3. First rejection: resource is released, next waiter gets the slot, `PolicyViolationError` raised
-4. All pass: work proceeds, `record()` called on each policy after release
+2. PolicyEnforcer reserves each policy in order. The default reservation hook checks permission; BudgetPolicy atomically reserves the task's estimated cost.
+3. First rejection: prior budget reservations are cancelled, the resource is released, and the error is raised.
+4. All pass: work proceeds. The admitted policies settle on completion, including failures and cancellation. Stateless policies retain their `check()` / `record()` hooks.
 
 ## Built-in Policies
 
 ### BudgetPolicy
 
-Per-agent spend limits. Same behavior as v0.2's `BudgetManager` (which is now an alias).
+Per-agent limits include settled spend and in-flight reservations. `BudgetManager` remains an alias for `BudgetPolicy`.
 
 ```python
 from loco import BudgetPolicy
@@ -122,14 +122,31 @@ enforcer.get_policy("budget")    # look up by name
 
 ```python
 enforcer.summary()
-# {"budget": {"analyst": {"limit": 50.0, "spent": 12.0, "remaining": 38.0}},
+# {"budget": {"analyst": {"limit": 50.0, "spent": 12.0, "reserved": 0.0, "remaining": 38.0}},
 #  "access": {"type": "AccessPolicy"},
 #  "rate": {"type": "RatePolicy"}}
 ```
 
 ## Writing Custom Policies
 
-Extend the `Policy` base class:
+Extend the `Policy` base class. The boolean result is an admission decision:
+
+- Return `True` to allow execution.
+- Return `False` to deny. The enforcer raises `PolicyViolationError` with the policy name.
+- Raise `PolicyViolationError` directly to provide a specific reason.
+- Other return values, including `None`, raise `TypeError` and prevent execution.
+
+A warning-only policy must record its warning separately and return `True`.
+The same contract applies to `check_all()` and both scheduler acquire APIs.
+Checks happen at admission, so policy changes made while a task waits are honored.
+
+For stateful custom policies, override `reserve()`, `settle_reservation()`, and
+`cancel_reservation()`. A `reserve()` override must enforce the decision using
+`self._check_or_raise(agent_id, task)` or raise on rejection, and clean up any
+partial state if it raises. Its return value is an opaque reservation token,
+not a boolean decision. The enforcer does not run checks twice: checks such as
+rate limiting can have side effects. The default cancellation hook does nothing;
+a custom policy with rollback requirements must implement it.
 
 ```python
 from loco.policy import Policy, PolicyViolationError
@@ -171,7 +188,17 @@ scheduler = AsyncLOCOScheduler(agents, resource, enforcer=enforcer)
 scheduler = AsyncLOCOScheduler(agents, resource, budget=budget, enforcer=enforcer)
 ```
 
-`BudgetManager` is an alias for `BudgetPolicy`. Existing code works without changes.
+`BudgetManager` is an alias for `BudgetPolicy`.
+
+Migration from 0.4.0: custom policies that returned `False` as a warning must
+now return `True` and record that warning separately. Previously the return
+value was ignored. Policies that omitted a return must explicitly return `True`
+on allowed paths. Built-in budget `alert` and `downgrade` modes still permit
+execution, but their `check()` result is now `True`; inspect `budget.alerts`
+to detect overages. Exception-based denial is unchanged.
+
+See [Budget reservations and settlement](../budget_reservations.md) for task
+association, accounting, and cleanup details.
 
 ## Exceptions
 
@@ -179,6 +206,7 @@ scheduler = AsyncLOCOScheduler(agents, resource, budget=budget, enforcer=enforce
 |-----------|------|
 | `PolicyViolationError` | Any policy rejects a task |
 | `BudgetExceededError` | Budget policy rejects (subclass of PolicyViolationError) |
+| `TypeError` | Custom `check()` returns something other than a bool |
 
 ```python
 from loco import PolicyViolationError, BudgetExceededError

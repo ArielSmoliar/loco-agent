@@ -19,7 +19,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from loco.async_scheduler import AcquireHandle, AsyncLOCOScheduler
+from loco.adapters._callbacks import CallbackCalls
+from loco.async_scheduler import AsyncLOCOScheduler
 from loco.task import Task
 
 MODEL_WEIGHTS: dict[str, float] = {
@@ -36,11 +37,7 @@ MODEL_WEIGHTS: dict[str, float] = {
 def _extract_model(serialized: dict[str, Any]) -> str:
     """Extract model name from LangChain's serialized dict."""
     kwargs = serialized.get("kwargs", {})
-    return (
-        kwargs.get("model_name")
-        or kwargs.get("model")
-        or serialized.get("id", ["unknown"])[-1]
-    )
+    return kwargs.get("model_name") or kwargs.get("model") or serialized.get("id", ["unknown"])[-1]
 
 
 def _estimate_prompt_tokens(prompts: list[str]) -> int:
@@ -56,7 +53,10 @@ class LOCOCallbackHandler:
 
     The handler uses split acquire/release:
     - on_llm_start: compute weight, submit task, acquire resource
-    - on_llm_end: release resource, dequeue task
+    - on_llm_end/on_llm_error: release only the matching run_id and task
+
+    Pass the same run_id at start and completion. Without an ID, only one
+    call for this agent may be active or waiting at a time.
 
     Args:
         scheduler: The AsyncLOCOScheduler instance.
@@ -66,7 +66,7 @@ class LOCOCallbackHandler:
     def __init__(self, scheduler: AsyncLOCOScheduler, agent_id: str) -> None:
         self.scheduler = scheduler
         self.agent_id = agent_id
-        self._handle: AcquireHandle | None = None
+        self._calls = CallbackCalls(scheduler)
 
     async def on_llm_start(
         self,
@@ -85,19 +85,12 @@ class LOCOCallbackHandler:
             weight = base_weight
 
         task = Task(weight=weight, task_type=f"langchain:{model}")
-        await self.scheduler.submit_task(self.agent_id, task)
-        self._handle = await self.scheduler.acquire_start(self.agent_id)
+        await self._calls.start(self.agent_id, kwargs.get("run_id"), task)
 
     async def on_llm_end(self, response: Any, **kwargs: Any) -> None:
         """Called after the LLM call completes. Releases the resource."""
-        if self._handle:
-            agent = self.scheduler.get_agent(self.agent_id)
-            agent.serve_oldest_task()
-            await self.scheduler.release_handle(self._handle)
-            self._handle = None
+        await self._calls.finish(self.agent_id, kwargs.get("run_id"))
 
-    async def on_llm_error(self, error: Exception, **kwargs: Any) -> None:
-        """Called if the LLM call fails. Releases the resource."""
-        if self._handle:
-            await self.scheduler.release_handle(self._handle)
-            self._handle = None
+    async def on_llm_error(self, error: BaseException, **kwargs: Any) -> None:
+        """Release the matching call on error, including explicit cancellation."""
+        await self._calls.finish(self.agent_id, kwargs.get("run_id"))

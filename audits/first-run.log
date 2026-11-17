@@ -1,0 +1,782 @@
+..FF..FFFF...FFFFF..F.F                                                  [100%]
+=================================== FAILURES ===================================
+_______ test_rejected_wrapper_does_not_poison_next_admission[True-wrap] ________
+
+api = 'wrap', prior_rejection = True
+
+    @pytest.mark.parametrize("api", ["wrap", "scheduled"])
+    @pytest.mark.parametrize("prior_rejection", [False, True])
+    async def test_rejected_wrapper_does_not_poison_next_admission(api, prior_rejection):
+        s = loco.configure(capacity=2, budget_mode="reject", auto_tune=False)
+        loco.set_budget("a", 2)
+        effects = []
+
+        async def action():
+            effects.append("ran")
+
+        if prior_rejection:
+            with pytest.raises(BudgetExceededError):
+                await invoke(api, action, weight=3)
+            assert effects == []
+        # Cheap work fits even if an earlier expensive request was rejected.
+>       await invoke(api, action, weight=1)
+
+audits/test_boundary_contracts.py:58:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+audits/test_boundary_contracts.py:32: in invoke
+    return await loco.wrap(fn, agent_id=aid, weight=weight)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+loco/convenience.py:144: in wrap
+    async with scheduler.acquire(agent_id):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py:214: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+loco/async_scheduler.py:221: in acquire
+    handle = await self.acquire_start(agent_id, timeout=timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+loco/async_scheduler.py:263: in acquire_start
+    handle._reservations = self._enforcer.reserve_all(agent_id, serving_task)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+loco/policy.py:138: in reserve_all
+    reservations.append((policy, policy.reserve(agent_id, task)))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+loco/budget.py:151: in reserve
+    self._check_or_raise(agent_id, cost)
+loco/policy.py:53: in _check_or_raise
+    result = self.check(agent_id, task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <loco.budget.BudgetPolicy object at 0x1089dfb10>, agent_id = 'a'
+task_cost = 3.0
+
+    def check(self, agent_id: str, task_cost: Task | float = 0.0) -> bool:
+        """Return True to allow, raising on reject-mode overages.
+
+        Alert/downgrade overages record a warning and return True. Inspect
+        alerts for warnings; use reserve() for atomic check-and-commit admission.
+        """
+        cost = validate_cost(task_cost.weight if isinstance(task_cost, Task) else task_cost)
+        with self._lock:
+            limit = self.get_limit(agent_id)
+            current = self.spent(agent_id) + self.reserved(agent_id)
+            if limit is not None and current + cost > limit:
+                self._alerts.append(
+                    {
+                        "agent_id": agent_id,
+                        "current": current,
+                        "task_cost": cost,
+                        "limit": limit,
+                        "action": self.on_exceeded,
+                    }
+                )
+                if self.on_exceeded == "reject":
+>                   raise BudgetExceededError(agent_id, current, limit, cost)
+E                   loco.budget.BudgetExceededError: Policy 'budget' violated by agent 'a': current=0.0 + task=3.0 > limit=2.0
+
+loco/budget.py:143: BudgetExceededError
+------------------------------ Captured log call -------------------------------
+WARNING  loco.scheduler:logging.py:143 {"tick": 0, "event": "budget_exceeded", "agent": "a", "task_id": "57d2d98781b6", "task_cost": 3, "current_spend": 0.0, "budget_limit": 2.0, "action": "reject", "resource": "llm_api"}
+WARNING  loco.scheduler:logging.py:143 {"tick": 1, "event": "budget_exceeded", "agent": "a", "task_id": "57d2d98781b6", "task_cost": 3, "current_spend": 0.0, "budget_limit": 2.0, "action": "reject", "resource": "llm_api"}
+_____ test_rejected_wrapper_does_not_poison_next_admission[True-scheduled] _____
+
+api = 'scheduled', prior_rejection = True
+
+    @pytest.mark.parametrize("api", ["wrap", "scheduled"])
+    @pytest.mark.parametrize("prior_rejection", [False, True])
+    async def test_rejected_wrapper_does_not_poison_next_admission(api, prior_rejection):
+        s = loco.configure(capacity=2, budget_mode="reject", auto_tune=False)
+        loco.set_budget("a", 2)
+        effects = []
+
+        async def action():
+            effects.append("ran")
+
+        if prior_rejection:
+            with pytest.raises(BudgetExceededError):
+                await invoke(api, action, weight=3)
+            assert effects == []
+        # Cheap work fits even if an earlier expensive request was rejected.
+>       await invoke(api, action, weight=1)
+
+audits/test_boundary_contracts.py:58:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+audits/test_boundary_contracts.py:33: in invoke
+    return await loco.scheduled(agent_id=aid, weight=weight)(fn)()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+loco/convenience.py:179: in wrapper
+    async with scheduler.acquire(agent_id):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/contextlib.py:214: in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+loco/async_scheduler.py:221: in acquire
+    handle = await self.acquire_start(agent_id, timeout=timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+loco/async_scheduler.py:263: in acquire_start
+    handle._reservations = self._enforcer.reserve_all(agent_id, serving_task)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+loco/policy.py:138: in reserve_all
+    reservations.append((policy, policy.reserve(agent_id, task)))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+loco/budget.py:151: in reserve
+    self._check_or_raise(agent_id, cost)
+loco/policy.py:53: in _check_or_raise
+    result = self.check(agent_id, task)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <loco.budget.BudgetPolicy object at 0x108ade9e0>, agent_id = 'a'
+task_cost = 3.0
+
+    def check(self, agent_id: str, task_cost: Task | float = 0.0) -> bool:
+        """Return True to allow, raising on reject-mode overages.
+
+        Alert/downgrade overages record a warning and return True. Inspect
+        alerts for warnings; use reserve() for atomic check-and-commit admission.
+        """
+        cost = validate_cost(task_cost.weight if isinstance(task_cost, Task) else task_cost)
+        with self._lock:
+            limit = self.get_limit(agent_id)
+            current = self.spent(agent_id) + self.reserved(agent_id)
+            if limit is not None and current + cost > limit:
+                self._alerts.append(
+                    {
+                        "agent_id": agent_id,
+                        "current": current,
+                        "task_cost": cost,
+                        "limit": limit,
+                        "action": self.on_exceeded,
+                    }
+                )
+                if self.on_exceeded == "reject":
+>                   raise BudgetExceededError(agent_id, current, limit, cost)
+E                   loco.budget.BudgetExceededError: Policy 'budget' violated by agent 'a': current=0.0 + task=3.0 > limit=2.0
+
+loco/budget.py:143: BudgetExceededError
+------------------------------ Captured log call -------------------------------
+WARNING  loco.scheduler:logging.py:143 {"tick": 0, "event": "budget_exceeded", "agent": "a", "task_id": "9e3d7ae8c86c", "task_cost": 3, "current_spend": 0.0, "budget_limit": 2.0, "action": "reject", "resource": "llm_api"}
+WARNING  loco.scheduler:logging.py:143 {"tick": 1, "event": "budget_exceeded", "agent": "a", "task_id": "9e3d7ae8c86c", "task_cost": 3, "current_spend": 0.0, "budget_limit": 2.0, "action": "reject", "resource": "llm_api"}
+___ test_out_of_order_completion_does_not_change_later_task_price[True-wrap] ___
+
+api = 'wrap', overlap = True
+
+    @pytest.mark.parametrize("api", ["wrap", "scheduled"])
+    @pytest.mark.parametrize("overlap", [False, True])
+    async def test_out_of_order_completion_does_not_change_later_task_price(api, overlap):
+        s = loco.configure(capacity=2, budget_mode="reject", auto_tune=False)
+        loco.set_budget("a", 100)
+        entered, release = asyncio.Event(), asyncio.Event()
+        effects = []
+
+        async def slow():
+            effects.append(2)
+            entered.set()
+            await release.wait()
+
+        async def medium():
+            effects.append(5)
+
+        async def cheap():
+            effects.append(1)
+
+        first = asyncio.create_task(invoke(api, slow, weight=2))
+        try:
+            await asyncio.wait_for(entered.wait(), 0.5)
+            if not overlap:
+                release.set()
+                await first
+            await invoke(api, medium, weight=5)
+            await invoke(api, cheap, weight=1)
+        finally:
+            release.set()
+            await first
+        assert effects == [2, 5, 1]
+>       assert s.budget.spent("a") == sum(effects), {
+            "submitted_weights": effects,
+            "recorded_spend": s.budget.spent("a"),
+        }
+E       AssertionError: {'recorded_spend': 12.0, 'submitted_weights': [2, 5, 1]}
+E       assert 12.0 == 8
+E        +  where 12.0 = spent('a')
+E        +    where spent = <loco.budget.BudgetPolicy object at 0x108b3c270>.spent
+E        +      where <loco.budget.BudgetPolicy object at 0x108b3c270> = <loco.async_scheduler.AsyncLOCOScheduler object at 0x108b3c490>.budget
+E        +  and   8 = sum([2, 5, 1])
+
+audits/test_boundary_contracts.py:95: AssertionError
+_ test_out_of_order_completion_does_not_change_later_task_price[True-scheduled] _
+
+api = 'scheduled', overlap = True
+
+    @pytest.mark.parametrize("api", ["wrap", "scheduled"])
+    @pytest.mark.parametrize("overlap", [False, True])
+    async def test_out_of_order_completion_does_not_change_later_task_price(api, overlap):
+        s = loco.configure(capacity=2, budget_mode="reject", auto_tune=False)
+        loco.set_budget("a", 100)
+        entered, release = asyncio.Event(), asyncio.Event()
+        effects = []
+
+        async def slow():
+            effects.append(2)
+            entered.set()
+            await release.wait()
+
+        async def medium():
+            effects.append(5)
+
+        async def cheap():
+            effects.append(1)
+
+        first = asyncio.create_task(invoke(api, slow, weight=2))
+        try:
+            await asyncio.wait_for(entered.wait(), 0.5)
+            if not overlap:
+                release.set()
+                await first
+            await invoke(api, medium, weight=5)
+            await invoke(api, cheap, weight=1)
+        finally:
+            release.set()
+            await first
+        assert effects == [2, 5, 1]
+>       assert s.budget.spent("a") == sum(effects), {
+            "submitted_weights": effects,
+            "recorded_spend": s.budget.spent("a"),
+        }
+E       AssertionError: {'recorded_spend': 12.0, 'submitted_weights': [2, 5, 1]}
+E       assert 12.0 == 8
+E        +  where 12.0 = spent('a')
+E        +    where spent = <loco.budget.BudgetPolicy object at 0x108b3c050>.spent
+E        +      where <loco.budget.BudgetPolicy object at 0x108b3c050> = <loco.async_scheduler.AsyncLOCOScheduler object at 0x108b3ce20>.budget
+E        +  and   8 = sum([2, 5, 1])
+
+audits/test_boundary_contracts.py:95: AssertionError
+________ test_cancelled_waiting_wrapper_removes_only_its_own_task[wrap] ________
+
+api = 'wrap'
+
+    @pytest.mark.parametrize("api", ["wrap", "scheduled"])
+    async def test_cancelled_waiting_wrapper_removes_only_its_own_task(api):
+        s = loco.configure(capacity=1, budget_mode="reject", auto_tune=False)
+        loco.set_budget("a", 100)
+        entered, release = asyncio.Event(), asyncio.Event()
+        effects = []
+
+        async def holder():
+            entered.set()
+            await release.wait()
+
+        async def forbidden():
+            effects.append("cancelled")
+
+        first = asyncio.create_task(invoke(api, holder, weight=2))
+        second = None
+        try:
+            await asyncio.wait_for(entered.wait(), 0.5)
+            second = asyncio.create_task(invoke(api, forbidden, weight=5))
+            await wait_until(lambda: s.resource.waiter_count == 1)
+            second.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await second
+        finally:
+            release.set()
+            await first
+            if second and not second.done():
+                second.cancel()
+                await asyncio.gather(second, return_exceptions=True)
+        assert effects == []
+        assert s.resource.holder_count == 0
+>       assert s.get_agent("a").tasks == [], "Cancelled request remains queued"
+E       AssertionError: Cancelled request remains queued
+E       assert [Task(task_id..., model=None)] == []
+E
+E         Left contains one more item: Task(task_id='ad1846a296e3', weight=5, arrival_tick=0, age=1, task_type='default', labels=None, session_id=None, team=None, workflow=None, model=None)
+E         Use -v to get more diff
+
+audits/test_boundary_contracts.py:133: AssertionError
+_____ test_cancelled_waiting_wrapper_removes_only_its_own_task[scheduled] ______
+
+api = 'scheduled'
+
+    @pytest.mark.parametrize("api", ["wrap", "scheduled"])
+    async def test_cancelled_waiting_wrapper_removes_only_its_own_task(api):
+        s = loco.configure(capacity=1, budget_mode="reject", auto_tune=False)
+        loco.set_budget("a", 100)
+        entered, release = asyncio.Event(), asyncio.Event()
+        effects = []
+
+        async def holder():
+            entered.set()
+            await release.wait()
+
+        async def forbidden():
+            effects.append("cancelled")
+
+        first = asyncio.create_task(invoke(api, holder, weight=2))
+        second = None
+        try:
+            await asyncio.wait_for(entered.wait(), 0.5)
+            second = asyncio.create_task(invoke(api, forbidden, weight=5))
+            await wait_until(lambda: s.resource.waiter_count == 1)
+            second.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await second
+        finally:
+            release.set()
+            await first
+            if second and not second.done():
+                second.cancel()
+                await asyncio.gather(second, return_exceptions=True)
+        assert effects == []
+        assert s.resource.holder_count == 0
+>       assert s.get_agent("a").tasks == [], "Cancelled request remains queued"
+E       AssertionError: Cancelled request remains queued
+E       assert [Task(task_id..., model=None)] == []
+E
+E         Left contains one more item: Task(task_id='81b5e728b709', weight=5, arrival_tick=0, age=1, task_type='default', labels=None, session_id=None, team=None, workflow=None, model=None)
+E         Use -v to get more diff
+
+audits/test_boundary_contracts.py:133: AssertionError
+_________ test_callback_overlap_does_not_lose_handles[True-langchain] __________
+
+kind = 'langchain', overlap = True
+
+    @pytest.mark.parametrize("kind", ["langchain", "adk", "crewai"])
+    @pytest.mark.parametrize("overlap", [False, True])
+    async def test_callback_overlap_does_not_lose_handles(kind, overlap):
+        budget = BudgetManager(default_limit=10)
+        s = AsyncLOCOScheduler([], SharedResource("local", 2), budget=budget)
+        start, end = callbacks(kind, s)
+        await start(0)
+        if not overlap:
+            await end(0)
+        await start(1)
+        await end(1)
+        if overlap:
+            await end(0)
+        observed = (s.resource.holder_count, budget.reserved("a"), budget.spent("a"))
+        # Cleanup only after taking the observation; lost handles aren't exposed by
+        # the adapters, so use scheduler internals solely to leave the test isolated.
+        for handle in list(s._active_handles.values()):
+            await s.release_handle(handle)
+>       assert observed == (0, 0, 2), {
+            "holders": observed[0],
+            "reserved": observed[1],
+            "settled": observed[2],
+        }
+E       AssertionError: {'holders': 1, 'reserved': 1.0, 'settled': 1.0}
+E       assert (1, 1.0, 1.0) == (0, 0, 2)
+E
+E         At index 0 diff: 1 != 0
+E         Use -v to get more diff
+
+audits/test_boundary_contracts.py:189: AssertionError
+____________ test_callback_overlap_does_not_lose_handles[True-adk] _____________
+
+kind = 'adk', overlap = True
+
+    @pytest.mark.parametrize("kind", ["langchain", "adk", "crewai"])
+    @pytest.mark.parametrize("overlap", [False, True])
+    async def test_callback_overlap_does_not_lose_handles(kind, overlap):
+        budget = BudgetManager(default_limit=10)
+        s = AsyncLOCOScheduler([], SharedResource("local", 2), budget=budget)
+        start, end = callbacks(kind, s)
+        await start(0)
+        if not overlap:
+            await end(0)
+        await start(1)
+        await end(1)
+        if overlap:
+            await end(0)
+        observed = (s.resource.holder_count, budget.reserved("a"), budget.spent("a"))
+        # Cleanup only after taking the observation; lost handles aren't exposed by
+        # the adapters, so use scheduler internals solely to leave the test isolated.
+        for handle in list(s._active_handles.values()):
+            await s.release_handle(handle)
+>       assert observed == (0, 0, 2), {
+            "holders": observed[0],
+            "reserved": observed[1],
+            "settled": observed[2],
+        }
+E       AssertionError: {'holders': 1, 'reserved': 1.0, 'settled': 1.0}
+E       assert (1, 1.0, 1.0) == (0, 0, 2)
+E
+E         At index 0 diff: 1 != 0
+E         Use -v to get more diff
+
+audits/test_boundary_contracts.py:189: AssertionError
+___________ test_callback_overlap_does_not_lose_handles[True-crewai] ___________
+
+kind = 'crewai', overlap = True
+
+    @pytest.mark.parametrize("kind", ["langchain", "adk", "crewai"])
+    @pytest.mark.parametrize("overlap", [False, True])
+    async def test_callback_overlap_does_not_lose_handles(kind, overlap):
+        budget = BudgetManager(default_limit=10)
+        s = AsyncLOCOScheduler([], SharedResource("local", 2), budget=budget)
+        start, end = callbacks(kind, s)
+        await start(0)
+        if not overlap:
+            await end(0)
+        await start(1)
+        await end(1)
+        if overlap:
+            await end(0)
+        observed = (s.resource.holder_count, budget.reserved("a"), budget.spent("a"))
+        # Cleanup only after taking the observation; lost handles aren't exposed by
+        # the adapters, so use scheduler internals solely to leave the test isolated.
+        for handle in list(s._active_handles.values()):
+            await s.release_handle(handle)
+>       assert observed == (0, 0, 2), {
+            "holders": observed[0],
+            "reserved": observed[1],
+            "settled": observed[2],
+        }
+E       AssertionError: {'holders': 1, 'reserved': 1.0, 'settled': 1.0}
+E       assert (1, 1.0, 1.0) == (0, 0, 2)
+E
+E         At index 0 diff: 1 != 0
+E         Use -v to get more diff
+
+audits/test_boundary_contracts.py:189: AssertionError
+____________ test_release_eventually_runs_waiting_action[1-tenant] _____________
+
+fut = <Future cancelled>, timeout = 0.05
+
+    async def wait_for(fut, timeout):
+        """Wait for the single Future or coroutine to complete, with timeout.
+
+        Coroutine will be wrapped in Task.
+
+        Returns result of the Future or coroutine.  When a timeout occurs,
+        it cancels the task and raises TimeoutError.  To avoid the task
+        cancellation, wrap it in shield().
+
+        If the wait is cancelled, the task is also cancelled.
+
+        If the task suppresses the cancellation and returns a value instead,
+        that value is returned.
+
+        This function is a coroutine.
+        """
+        # The special case for timeout <= 0 is for the following case:
+        #
+        # async def test_waitfor():
+        #     func_started = False
+        #
+        #     async def func():
+        #         nonlocal func_started
+        #         func_started = True
+        #
+        #     try:
+        #         await asyncio.wait_for(func(), 0)
+        #     except asyncio.TimeoutError:
+        #         assert not func_started
+        #     else:
+        #         assert False
+        #
+        # asyncio.run(test_waitfor())
+
+
+        if timeout is not None and timeout <= 0:
+            fut = ensure_future(fut)
+
+            if fut.done():
+                return fut.result()
+
+            await _cancel_and_wait(fut)
+            try:
+                return fut.result()
+            except exceptions.CancelledError as exc:
+                raise TimeoutError from exc
+
+        async with timeouts.timeout(timeout):
+>           return await fut
+                   ^^^^^^^^^
+E           asyncio.exceptions.CancelledError
+
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/tasks.py:507: CancelledError
+
+The above exception was the direct cause of the following exception:
+
+kind = 'tenant', capacity = 1
+
+    @pytest.mark.parametrize("kind", ["tenant", "pool"])
+    @pytest.mark.parametrize("capacity", [1, 2])
+    async def test_release_eventually_runs_waiting_action(kind, capacity):
+        effects = []
+        async with contended_resource(kind, capacity) as (resource, acquire):
+
+            async def worker():
+                async with acquire("waiter"):
+                    effects.append("ran")
+
+            async with acquire("holder"):
+                waiter = asyncio.create_task(worker())
+                await wait_until(lambda: resource.waiter_count == 1 or waiter.done())
+            try:
+                # The holder is gone. A free slot must eventually be granted.
+>               await asyncio.wait_for(asyncio.shield(waiter), 0.05)
+
+audits/test_boundary_contracts.py:233:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/tasks.py:506: in wait_for
+    async with timeouts.timeout(timeout):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Timeout [expired]>
+exc_type = <class 'asyncio.exceptions.CancelledError'>
+exc_val = CancelledError(), exc_tb = <traceback object at 0x108ae7180>
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> Optional[bool]:
+        assert self._state in (_State.ENTERED, _State.EXPIRING)
+
+        if self._timeout_handler is not None:
+            self._timeout_handler.cancel()
+            self._timeout_handler = None
+
+        if self._state is _State.EXPIRING:
+            self._state = _State.EXPIRED
+
+            if self._task.uncancel() <= self._cancelling and exc_type is not None:
+                # Since there are no new cancel requests, we're
+                # handling this.
+                if issubclass(exc_type, exceptions.CancelledError):
+>                   raise TimeoutError from exc_val
+E                   TimeoutError
+
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/timeouts.py:117: TimeoutError
+
+During handling of the above exception, another exception occurred:
+
+kind = 'tenant', capacity = 1
+
+    @pytest.mark.parametrize("kind", ["tenant", "pool"])
+    @pytest.mark.parametrize("capacity", [1, 2])
+    async def test_release_eventually_runs_waiting_action(kind, capacity):
+        effects = []
+        async with contended_resource(kind, capacity) as (resource, acquire):
+
+            async def worker():
+                async with acquire("waiter"):
+                    effects.append("ran")
+
+            async with acquire("holder"):
+                waiter = asyncio.create_task(worker())
+                await wait_until(lambda: resource.waiter_count == 1 or waiter.done())
+            try:
+                # The holder is gone. A free slot must eventually be granted.
+                await asyncio.wait_for(asyncio.shield(waiter), 0.05)
+            except TimeoutError:
+                observed = (resource.holder_count, resource.waiter_count)
+                waiter.cancel()
+                await asyncio.gather(waiter, return_exceptions=True)
+>               pytest.fail(f"No progress after release: holders={observed[0]}, waiters={observed[1]}")
+E               Failed: No progress after release: holders=0, waiters=1
+
+audits/test_boundary_contracts.py:238: Failed
+_____________ test_release_eventually_runs_waiting_action[1-pool] ______________
+
+fut = <Future cancelled>, timeout = 0.05
+
+    async def wait_for(fut, timeout):
+        """Wait for the single Future or coroutine to complete, with timeout.
+
+        Coroutine will be wrapped in Task.
+
+        Returns result of the Future or coroutine.  When a timeout occurs,
+        it cancels the task and raises TimeoutError.  To avoid the task
+        cancellation, wrap it in shield().
+
+        If the wait is cancelled, the task is also cancelled.
+
+        If the task suppresses the cancellation and returns a value instead,
+        that value is returned.
+
+        This function is a coroutine.
+        """
+        # The special case for timeout <= 0 is for the following case:
+        #
+        # async def test_waitfor():
+        #     func_started = False
+        #
+        #     async def func():
+        #         nonlocal func_started
+        #         func_started = True
+        #
+        #     try:
+        #         await asyncio.wait_for(func(), 0)
+        #     except asyncio.TimeoutError:
+        #         assert not func_started
+        #     else:
+        #         assert False
+        #
+        # asyncio.run(test_waitfor())
+
+
+        if timeout is not None and timeout <= 0:
+            fut = ensure_future(fut)
+
+            if fut.done():
+                return fut.result()
+
+            await _cancel_and_wait(fut)
+            try:
+                return fut.result()
+            except exceptions.CancelledError as exc:
+                raise TimeoutError from exc
+
+        async with timeouts.timeout(timeout):
+>           return await fut
+                   ^^^^^^^^^
+E           asyncio.exceptions.CancelledError
+
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/tasks.py:507: CancelledError
+
+The above exception was the direct cause of the following exception:
+
+kind = 'pool', capacity = 1
+
+    @pytest.mark.parametrize("kind", ["tenant", "pool"])
+    @pytest.mark.parametrize("capacity", [1, 2])
+    async def test_release_eventually_runs_waiting_action(kind, capacity):
+        effects = []
+        async with contended_resource(kind, capacity) as (resource, acquire):
+
+            async def worker():
+                async with acquire("waiter"):
+                    effects.append("ran")
+
+            async with acquire("holder"):
+                waiter = asyncio.create_task(worker())
+                await wait_until(lambda: resource.waiter_count == 1 or waiter.done())
+            try:
+                # The holder is gone. A free slot must eventually be granted.
+>               await asyncio.wait_for(asyncio.shield(waiter), 0.05)
+
+audits/test_boundary_contracts.py:233:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/tasks.py:506: in wait_for
+    async with timeouts.timeout(timeout):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <Timeout [expired]>
+exc_type = <class 'asyncio.exceptions.CancelledError'>
+exc_val = CancelledError(), exc_tb = <traceback object at 0x109258a40>
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> Optional[bool]:
+        assert self._state in (_State.ENTERED, _State.EXPIRING)
+
+        if self._timeout_handler is not None:
+            self._timeout_handler.cancel()
+            self._timeout_handler = None
+
+        if self._state is _State.EXPIRING:
+            self._state = _State.EXPIRED
+
+            if self._task.uncancel() <= self._cancelling and exc_type is not None:
+                # Since there are no new cancel requests, we're
+                # handling this.
+                if issubclass(exc_type, exceptions.CancelledError):
+>                   raise TimeoutError from exc_val
+E                   TimeoutError
+
+/opt/homebrew/Cellar/python@3.13/3.13.15/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/timeouts.py:117: TimeoutError
+
+During handling of the above exception, another exception occurred:
+
+kind = 'pool', capacity = 1
+
+    @pytest.mark.parametrize("kind", ["tenant", "pool"])
+    @pytest.mark.parametrize("capacity", [1, 2])
+    async def test_release_eventually_runs_waiting_action(kind, capacity):
+        effects = []
+        async with contended_resource(kind, capacity) as (resource, acquire):
+
+            async def worker():
+                async with acquire("waiter"):
+                    effects.append("ran")
+
+            async with acquire("holder"):
+                waiter = asyncio.create_task(worker())
+                await wait_until(lambda: resource.waiter_count == 1 or waiter.done())
+            try:
+                # The holder is gone. A free slot must eventually be granted.
+                await asyncio.wait_for(asyncio.shield(waiter), 0.05)
+            except TimeoutError:
+                observed = (resource.holder_count, resource.waiter_count)
+                waiter.cancel()
+                await asyncio.gather(waiter, return_exceptions=True)
+>               pytest.fail(f"No progress after release: holders={observed[0]}, waiters={observed[1]}")
+E               Failed: No progress after release: holders=0, waiters=1
+
+audits/test_boundary_contracts.py:238: Failed
+________________________ test_tenant_timeout_is_honored ________________________
+
+    async def test_tenant_timeout_is_honored():
+        resource = SharedResource("local", 1)
+        mt = MultiTenantScheduler(resource)
+        mt.register_tenant("tenant")
+        for aid in ("holder", "waiter"):
+            mt.register_agent("tenant", Agent(aid))
+            await mt.submit_task("tenant", aid, Task())
+        effects = []
+
+        async def waiting():
+            async with mt.acquire("tenant", "waiter", timeout=0.005):
+                effects.append("ran")
+
+        async with mt.acquire("tenant", "holder"):
+            waiter = asyncio.create_task(waiting())
+            try:
+                # Outer watchdog is deliberately distinct from the API timeout.
+                done, _ = await asyncio.wait([waiter], timeout=0.05)
+>               assert waiter in done, "Tenant timeout was ignored; caller still waiting"
+E               AssertionError: Tenant timeout was ignored; caller still waiting
+E               assert <Task pending name='Task-110' coro=<test_tenant_timeout_is_honored.<locals>.waiting() running at /private/tmp/loco-enforcement-boundary-audit/audits/test_boundary_contracts.py:253> wait_for=<Future pending cb=[Task.task_wakeup()]>> in set()
+
+audits/test_boundary_contracts.py:261: AssertionError
+____ test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue[True] _____
+
+preloaded = True
+
+    @pytest.mark.parametrize("preloaded", [False, True])
+    async def test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue(preloaded):
+        mt = MultiTenantScheduler(SharedResource("local", 1))
+        mt.register_tenant("tenant", cost_ceiling=1)
+        task = Task(weight=2)
+        mt.register_agent("tenant", Agent("a", tasks=[task] if preloaded else []))
+        effects = []
+>       with pytest.raises(TenantCostExceededError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'loco.tenant.TenantCostExceededError'>
+
+audits/test_boundary_contracts.py:278: Failed
+=========================== short test summary info ============================
+FAILED audits/test_boundary_contracts.py::test_rejected_wrapper_does_not_poison_next_admission[True-wrap]
+FAILED audits/test_boundary_contracts.py::test_rejected_wrapper_does_not_poison_next_admission[True-scheduled]
+FAILED audits/test_boundary_contracts.py::test_out_of_order_completion_does_not_change_later_task_price[True-wrap]
+FAILED audits/test_boundary_contracts.py::test_out_of_order_completion_does_not_change_later_task_price[True-scheduled]
+FAILED audits/test_boundary_contracts.py::test_cancelled_waiting_wrapper_removes_only_its_own_task[wrap]
+FAILED audits/test_boundary_contracts.py::test_cancelled_waiting_wrapper_removes_only_its_own_task[scheduled]
+FAILED audits/test_boundary_contracts.py::test_callback_overlap_does_not_lose_handles[True-langchain]
+FAILED audits/test_boundary_contracts.py::test_callback_overlap_does_not_lose_handles[True-adk]
+FAILED audits/test_boundary_contracts.py::test_callback_overlap_does_not_lose_handles[True-crewai]
+FAILED audits/test_boundary_contracts.py::test_release_eventually_runs_waiting_action[1-tenant]
+FAILED audits/test_boundary_contracts.py::test_release_eventually_runs_waiting_action[1-pool]
+FAILED audits/test_boundary_contracts.py::test_tenant_timeout_is_honored - As...
+FAILED audits/test_boundary_contracts.py::test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue[True]
+13 failed, 10 passed in 0.28s

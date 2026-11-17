@@ -275,7 +275,7 @@ class TestBudgetCeilings:
         budget.set_limit("agent-1", max_cost=10.0)
         budget.record_spend("agent-1", 8.0)
         result = budget.check("agent-1", task_cost=5.0)
-        assert result is False  # over budget but allowed
+        assert result is True  # advisory overage allows; warning is in alerts
         assert len(budget.alerts) == 1
 
     def test_remaining(self):

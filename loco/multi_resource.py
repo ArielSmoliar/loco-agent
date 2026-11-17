@@ -19,7 +19,7 @@ Usage:
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import AsyncIterator
 
 from loco.resource import SharedResource
@@ -78,30 +78,14 @@ class ResourcePool:
         Raises:
             ValueError: if any resource name is unknown.
         """
-        # Sort for consistent ordering (deadlock prevention)
-        sorted_names = sorted(set(resource_names))
-        acquired: list[SharedResource] = []
-
-        try:
-            for name in sorted_names:
-                resource = self.get(name)
-                granted = await resource.try_acquire(agent_id)
-                if not granted:
-                    await resource.wait_for_slot(agent_id)
-                    # After wait_for_slot, we need to acquire
-                    # (grant() already added us to holders)
-                else:
-                    pass  # try_acquire already added us
-                acquired.append(resource)
+        # Resolve every name before taking any slot. Each context owns its
+        # cancellation-safe release, so partial acquisition unwinds in reverse.
+        resources = [self.get(name) for name in sorted(set(resource_names))]
+        async with AsyncExitStack() as stack:
+            for resource in resources:
+                await stack.enter_async_context(resource.acquire_fifo(agent_id))
             yield
-        finally:
-            # Release in reverse order
-            for resource in reversed(acquired):
-                await resource.release(agent_id)
 
     def utilization(self) -> dict[str, float]:
         """Current utilization per resource."""
-        return {
-            name: res.utilization
-            for name, res in sorted(self._resources.items())
-        }
+        return {name: res.utilization for name, res in sorted(self._resources.items())}

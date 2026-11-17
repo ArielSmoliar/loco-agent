@@ -2,6 +2,60 @@
 
 All notable changes to LOCO-Agent are documented in this file.
 
+## Unreleased
+
+### Fixed
+
+- Tenant and multi-resource waiters now resume when capacity is released.
+  Shared FIFO admission cleans up timed-out/cancelled calls and raced grants.
+- Tenant `timeout` is enforced. Tenant ceilings are rechecked and charged at
+  grant, including preloaded tasks and concurrent in-flight work.
+- Multi-resource partial acquisition and repeated cancellation unwind acquired
+  resources in reverse order without leaking capacity.
+- Tenant acquisitions claim distinct tasks, automatically dequeue executed
+  attempts, and reject taskless execution. Active/waiting tenants cannot be
+  unregistered. See `docs/concepts/multi-tenant.md` for migration details.
+- `wrap()` and `scheduled()` remove their own tasks on rejection, queued
+  cancellation, and execution completion. Out-of-order finishes no longer
+  remove another task or misattribute the next call's cost.
+- LangChain, ADK, and CrewAI callback adapters retain handles per invocation.
+  Unidentified overlapping starts are rejected before enqueueing. Error and
+  duplicate completion paths clean up only their matching tasks and handles.
+- ADK callbacks accept the documented `callback_context` keyword. Error cleanup
+  hooks are available for ADK model calls and CrewAI steps.
+- Coarse CrewAI execution cleans up tasks when kickoff fails.
+
+### Added
+
+- Optional `task=` binding on scheduler acquire APIs and identity-based task
+  removal for integrations. See `docs/task-lifecycle.md` for callback migration.
+
+### Enforcement fixes
+
+- Concurrent acquisitions claim distinct queued tasks before waiting, so one
+  action cannot reuse the labels or estimated cost of an already claimed task.
+- Budget admission atomically reserves in-flight commitments and settles them
+  on completion. Later policy rejection rolls back earlier reservations.
+- Shutdown cancels all queued callers without executing their actions, counts
+  callers rather than agent IDs, and distinguishes cancellation from a slot grant.
+- Custom policy `False` results now deny execution through both acquire APIs
+  and `check_all()`. Non-boolean results fail with `TypeError`.
+- Budget policy subclasses continue receiving the original task, including its
+  labels and metadata, when admission checks run.
+- Repeated cancellation during failed admission cannot interrupt the wakeup
+  needed by the next scored waiter.
+
+### Changed
+
+- Advisory budget modes still allow execution but return `True`; overages are
+  recorded in `alerts`. Custom warning-only policies must also return `True`.
+- `spent()` reports settled cost; `reserved()` reports in-flight commitments;
+  `remaining()` subtracts both. Resetting an active budget raises `RuntimeError`.
+- Acquire handles can settle a verified actual cost in budget units. Without one,
+  the original estimate is settled, including on execution failure/cancellation.
+  Reservations coordinate one process; actual charges above estimates can still
+  exceed a ceiling. See `docs/budget_reservations.md`.
+
 ## v0.4.0 -- 2026-06-07
 
 Enterprise Cost Dashboard + Observability. The sellable surface: platform engineers can now

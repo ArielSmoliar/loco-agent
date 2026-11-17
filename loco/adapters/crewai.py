@@ -1,7 +1,7 @@
 """CrewAI adapter for LOCO-Agent.
 
 Two integration patterns:
-1. Per-step scheduling via step_callback (fine-grained)
+1. Explicit before_step / after_step hooks (fine-grained)
 2. Per-crew scheduling by wrapping crew.kickoff() (coarse)
 
 Usage (per-step):
@@ -11,9 +11,12 @@ Usage (per-step):
     scheduler = AsyncLOCOScheduler([], SharedResource("llm", capacity=3))
     adapter = CrewAIAdapter(scheduler)
 
-    # Wire into CrewAI agent:
-    # agent = crewai.Agent(role="researcher",
-    #                      step_callback=adapter.step_callback)
+    # Your integration must call both hooks around the actual step:
+    # await adapter.before_step("researcher", invocation_id=step_id)
+    # try:
+    #     await run_step()
+    # finally:
+    #     await adapter.after_step("researcher", invocation_id=step_id)
 
 Usage (coarse):
     result = await adapter.run_crew(crew, inputs={"query": "..."})
@@ -21,9 +24,11 @@ Usage (coarse):
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Hashable
 
-from loco.async_scheduler import AcquireHandle, AsyncLOCOScheduler
+from loco.adapters._callbacks import CallbackCalls
+from loco.async_scheduler import AsyncLOCOScheduler
+from loco.lifecycle import scheduled_task
 from loco.task import Task
 
 # Default weights by agent role — override via constructor
@@ -39,9 +44,10 @@ DEFAULT_ROLE_WEIGHTS: dict[str, float] = {
 class CrewAIAdapter:
     """Adapter for CrewAI framework.
 
-    Per-step scheduling: the step_callback fires on each agent step
-    (tool call or LLM call). The adapter acquires the resource before
-    the step and releases after.
+    Per-step scheduling requires explicit before/after hooks around each step.
+    Supply a distinct invocation_id for overlapping steps with the same role.
+    Calls without IDs remain sequential-only. A completion-only framework hook
+    cannot enforce admission before work starts.
 
     Per-crew scheduling: wrap crew.kickoff() in acquire/release for
     coarser but simpler scheduling.
@@ -61,13 +67,13 @@ class CrewAIAdapter:
         self.scheduler = scheduler
         self.role_weights = role_weights or DEFAULT_ROLE_WEIGHTS
         self.default_weight = default_weight
-        self._handles: dict[str, AcquireHandle] = {}
+        self._calls = CallbackCalls(scheduler)
 
     def _weight_for_role(self, role: str) -> float:
         """Get weight for an agent role."""
         return self.role_weights.get(role.lower(), self.default_weight)
 
-    async def before_step(self, agent_role: str) -> None:
+    async def before_step(self, agent_role: str, *, invocation_id: Hashable | None = None) -> None:
         """Called before a CrewAI agent step. Acquires the resource.
 
         Args:
@@ -75,21 +81,21 @@ class CrewAIAdapter:
         """
         weight = self._weight_for_role(agent_role)
         task = Task(weight=weight, task_type=f"crewai:{agent_role}")
-        await self.scheduler.submit_task(agent_role, task)
-        handle = await self.scheduler.acquire_start(agent_role)
-        self._handles[agent_role] = handle
+        await self._calls.start(agent_role, invocation_id, task)
 
-    async def after_step(self, agent_role: str) -> None:
+    async def after_step(self, agent_role: str, *, invocation_id: Hashable | None = None) -> None:
         """Called after a CrewAI agent step completes. Releases the resource.
 
         Args:
             agent_role: The CrewAI agent's role.
         """
-        handle = self._handles.pop(agent_role, None)
-        if handle:
-            agent = self.scheduler.get_agent(agent_role)
-            agent.serve_oldest_task()
-            await self.scheduler.release_handle(handle)
+        await self._calls.finish(agent_role, invocation_id)
+
+    async def on_step_error(
+        self, agent_role: str, error: BaseException, *, invocation_id: Hashable | None = None
+    ) -> None:
+        """Release the matching step on failure or explicit cancellation."""
+        await self._calls.finish(agent_role, invocation_id)
 
     async def run_crew(
         self,
@@ -113,10 +119,5 @@ class CrewAIAdapter:
             The crew.kickoff() result.
         """
         task = Task(weight=weight, task_type=f"crewai:crew:{crew_id}")
-        await self.scheduler.submit_task(crew_id, task)
-
-        async with self.scheduler.acquire(crew_id):
-            result = crew.kickoff(**kickoff_kwargs)
-            agent = self.scheduler.get_agent(crew_id)
-            agent.serve_oldest_task()
-        return result
+        async with scheduled_task(self.scheduler, crew_id, task):
+            return crew.kickoff(**kickoff_kwargs)
