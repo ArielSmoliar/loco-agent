@@ -1,14 +1,24 @@
 # Current status
 
-Task cleanup and callback ownership now have required regressions in
-`tests/test_task_callback_lifecycle.py`. They are fixed on
-`codex/task-callback-lifecycle`. CrewAI overlap now requires distinct explicit
-invocation IDs; unidentified overlap is rejected before admission.
+All findings from this bounded audit now have fixes and required regression
+coverage on `codex/tenant-resource-lifecycle` (building on the enforcement and
+callback lifecycle fixes). This is a local branch, not a published release.
 
-The explicit audit file now contains only the seven remaining tenant/resource-pool
-variants. Its runner writes `remaining-results.json` and a matching `.log`, leaving
-`results.json` and `first-run.log` below as the original pre-fix evidence.
-The tenant/resource-pool findings are still open. See `docs/task-lifecycle.md`.
+- Task/callback cases: `tests/test_task_callback_lifecycle.py`.
+- Tenant/resource-pool cases: `tests/test_tenant_resource_regressions.py`.
+- Full required suite: 623 passed; Ruff passed.
+- Original seven tenant/resource-pool cases: all passed in 20 repetitions each.
+  See `resolved-results.json` and `resolved-results.log`.
+
+The explicit audit file re-exports the seven promoted cases, so the audit runner
+and CI cannot silently diverge. `results.json`, `first-run.log`, and
+`remaining-results.*` are historical pre-fix evidence. Use
+`python audits/run_boundary_audit.py --output audits/resolved-results.json`
+for a fresh run.
+
+See `docs/resource-lifecycle.md` and `docs/task-lifecycle.md` for behavior and
+compatibility changes. The report below preserves the original investigation;
+its failure counts and next steps describe that earlier revision.
 
 ---
 

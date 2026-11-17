@@ -197,4 +197,4 @@ Yes. Library mode gives you in-app observability (queue depth, wait times, trust
 
 **Q: What about multi-tenant isolation?**
 
-LOCO's `MultiTenantScheduler` isolates agent pools and cost ceilings per tenant. In gateway mode, map each tenant to their proxy credentials. The tenant can't exceed their ceiling even if they write arbitrary code -- the gateway rejects calls once the ceiling is hit. See [Multi-Tenant Isolation](multi-tenant.md).
+LOCO's `MultiTenantScheduler` scopes agent registration and task-weight cost ceilings per tenant. It checks and charges queued tasks at admission. Enforcement applies to calls through that scheduler; application code that bypasses it is outside that boundary. Shared capacity uses FIFO admission. See [Multi-Tenant Isolation](multi-tenant.md).

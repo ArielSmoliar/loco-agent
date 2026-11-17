@@ -54,6 +54,8 @@ for iteration in range(args.repetitions):
 files = [
     "loco/convenience.py",
     "loco/tenant.py",
+    "loco/resource.py",
+    "loco/_cleanup.py",
     "loco/multi_resource.py",
     "loco/adapters/langchain.py",
     "loco/adapters/google_adk.py",

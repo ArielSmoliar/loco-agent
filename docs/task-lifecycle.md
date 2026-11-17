@@ -44,10 +44,10 @@ cancellation during release, and identity validation. Live framework/provider
 integration has not been exercised in this change. Other SDK and vanilla adapter
 lifecycles have not been migrated by this scoped fix.
 
-The remaining tenant/resource-pool waiting, timeout, and ceiling findings stay
-in `audits/test_boundary_contracts.py`; this change does not fix them.
+The tenant/resource-pool waiting, timeout, and ceiling findings were subsequently
+fixed on `codex/tenant-resource-lifecycle`; see `docs/resource-lifecycle.md`.
 
-## Local verification
+## Local verification of the earlier task/callback fix
 
 - Full required suite: 597 passed on Python 3.14.5; Ruff passed.
 - Lifecycle regression file: 52 passed, including promoted audit scenarios.

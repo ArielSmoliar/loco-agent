@@ -1,9 +1,9 @@
 """Multi-tenant isolation for LOCO-Agent (v0.4).
 
 Partitions agents into tenant-scoped scheduling domains. Each tenant
-gets its own scheduling context with independent cost tracking, policy
-enforcement, and starvation guarantees. One tenant's burst can't starve
-another tenant's agents.
+has isolated agents and cost accounting. Admission uses a shared FIFO queue;
+queued calls cannot be overtaken by later tenant calls. This is not weighted
+fair sharing or independent per-tenant capacity.
 
 Usage:
     mt = MultiTenantScheduler(
@@ -23,11 +23,13 @@ Usage:
 
 from __future__ import annotations
 
+import math
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator
 
 from loco.agent import Agent
+from loco.budget import validate_cost
 from loco.resource import SharedResource
 from loco.task import Task
 
@@ -62,14 +64,14 @@ class TenantLimitError(Exception):
 class MultiTenantScheduler:
     """Multi-tenant scheduling with isolated domains.
 
-    Wraps a shared resource with per-tenant agent pools, cost tracking,
-    and starvation prevention. Each tenant's agents compete only within
-    their tenant for fair scheduling, while the underlying resource is
-    shared across all tenants.
+    Wraps a shared FIFO resource with per-tenant agents and cost ceilings.
+    Cost is charged at admission, including active calls, so concurrent calls
+    cannot spend the same remaining budget. Executed tasks are dequeued exactly
+    once on exit. A task is required; rejected/timed-out tasks remain queued.
 
     Args:
         resource: The shared resource all tenants compete for.
-        optimize_for: Scheduling optimization target.
+        optimize_for: Retained for compatibility; tenant admission uses FIFO.
     """
 
     def __init__(
@@ -83,6 +85,9 @@ class MultiTenantScheduler:
         self._tenants: dict[str, TenantState] = {}
         # Map agent_id -> tenant_id for fast lookup
         self._agent_tenant: dict[str, str] = {}
+        self._task_claims: set[int] = set()
+        self._admitted_tasks: set[int] = set()
+        self._pending_acquires: dict[str, int] = {}
 
     def register_tenant(
         self,
@@ -106,7 +111,7 @@ class MultiTenantScheduler:
         config = TenantConfig(
             tenant_id=tenant_id,
             max_agents=max_agents,
-            cost_ceiling=cost_ceiling,
+            cost_ceiling=None if cost_ceiling is None else validate_cost(cost_ceiling),
         )
         self._tenants[tenant_id] = TenantState(config=config)
 
@@ -115,14 +120,14 @@ class MultiTenantScheduler:
 
         Raises:
             ValueError: If tenant_id is not registered.
-            RuntimeError: If any of the tenant's agents are holding resources.
+            RuntimeError: If any of the tenant's agents are holding or waiting for resources.
         """
         tenant = self._get_tenant(tenant_id)
         for agent_id in tenant.agents:
-            if self.resource.is_holding(agent_id):
+            if self.resource.is_holding(agent_id) or self._pending_acquires.get(agent_id, 0):
                 raise RuntimeError(
                     f"Cannot unregister tenant {tenant_id}: "
-                    f"agent {agent_id} is holding the resource"
+                    f"agent {agent_id} is holding or waiting for the resource"
                 )
         for agent_id in list(tenant.agents.keys()):
             self._agent_tenant.pop(agent_id, None)
@@ -161,10 +166,13 @@ class MultiTenantScheduler:
 
         # Check cost ceiling (include pending queue cost)
         if tenant.config.cost_ceiling is not None:
-            pending_cost = sum(
-                t.weight for a in tenant.agents.values() for t in a.tasks
+            pending_cost = math.fsum(
+                validate_cost(t.weight)
+                for a in tenant.agents.values()
+                for t in a.tasks
+                if id(t) not in self._admitted_tasks
             )
-            projected = tenant.total_cost + pending_cost + task.weight
+            projected = tenant.total_cost + pending_cost + validate_cost(task.weight)
             if projected > tenant.config.cost_ceiling:
                 raise TenantCostExceededError(
                     f"Tenant {tenant_id} cost ceiling exceeded: "
@@ -177,43 +185,57 @@ class MultiTenantScheduler:
 
     @asynccontextmanager
     async def acquire(
-        self, tenant_id: str, agent_id: str, *, timeout: float | None = None
+        self,
+        tenant_id: str,
+        agent_id: str,
+        *,
+        timeout: float | None = None,
+        task: Task | None = None,
     ) -> AsyncIterator[None]:
-        """Acquire the shared resource for a tenant's agent.
+        """Admit one queued task, honoring timeout and the current cost ceiling.
 
-        Enforces tenant cost ceiling on grant. Records cost to tenant state.
-
-        Args:
-            tenant_id: The tenant making the request.
-            agent_id: The agent requesting the resource.
-            timeout: Max seconds to wait.
-
-        Raises:
-            ValueError: If tenant or agent doesn't exist.
-            TenantCostExceededError: If granting would exceed cost ceiling.
+        A task's weight is charged before yielding, with no intervening await.
+        Failures/cancellation after admission remain charged; this is task-weight
+        accounting, not provider billing. Pre-admission failures do not charge.
+        Pass task= to select an exact queued task; otherwise claim the next free
+        one. Executed attempts are removed and counted on every exit.
         """
         tenant = self._get_tenant(tenant_id)
         if agent_id not in tenant.agents:
             raise ValueError(f"Agent {agent_id} not in tenant {tenant_id}")
-
         agent = tenant.agents[agent_id]
-        serving_task = agent.tasks[0] if agent.tasks else None
-
-        # Acquire the shared resource
-        granted = await self.resource.try_acquire(agent_id)
-        if not granted:
-            await self.resource.wait_for_slot(agent_id)
-
-        # Record cost
-        if serving_task:
-            tenant.total_cost += serving_task.weight
-
+        if task is not None:
+            if not any(t is task for t in agent.tasks) or id(task) in self._task_claims:
+                raise ValueError("Task must be queued for this agent and unclaimed")
+            serving_task = task
+        else:
+            serving_task = next((t for t in agent.tasks if id(t) not in self._task_claims), None)
+        if serving_task is None:
+            raise ValueError("Tenant acquisition requires an unclaimed queued task")
+        self._task_claims.add(id(serving_task))
+        self._pending_acquires[agent_id] = self._pending_acquires.get(agent_id, 0) + 1
         try:
-            async with self.resource.held_by(agent_id):
-                yield
+            async with self.resource.acquire_fifo(agent_id, timeout=timeout):
+                cost = validate_cost(serving_task.weight)
+                limit = tenant.config.cost_ceiling
+                if limit is not None and tenant.total_cost + cost > validate_cost(limit):
+                    raise TenantCostExceededError(
+                        f"Tenant {tenant_id} cost ceiling exceeded: "
+                        f"{tenant.total_cost} (admitted) + {cost} (task) > {limit}"
+                    )
+                tenant.total_cost += cost
+                self._admitted_tasks.add(id(serving_task))
+                try:
+                    yield
+                finally:
+                    agent.remove_task(serving_task, completed=True)
+                    tenant.tasks_completed += 1
+                    self._admitted_tasks.discard(id(serving_task))
         finally:
-            if serving_task:
-                tenant.tasks_completed += 1
+            self._task_claims.discard(id(serving_task))
+            self._pending_acquires[agent_id] -= 1
+            if not self._pending_acquires[agent_id]:
+                del self._pending_acquires[agent_id]
 
     def tenant_cost(self, tenant_id: str) -> float:
         """Get cumulative cost for a tenant."""

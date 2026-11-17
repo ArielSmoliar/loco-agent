@@ -6,6 +6,17 @@ All notable changes to LOCO-Agent are documented in this file.
 
 ### Fixed
 
+- Tenant and multi-resource waiters now resume when capacity is released.
+  Shared FIFO admission cleans up timed-out/cancelled calls and raced grants.
+- Tenant `timeout` is enforced. Tenant ceilings are rechecked and charged at
+  grant, including preloaded tasks and concurrent in-flight work.
+- Multi-resource partial acquisition and repeated cancellation unwind acquired
+  resources in reverse order without leaking capacity.
+- Tenant acquisitions claim distinct tasks, automatically dequeue executed
+  attempts, and reject taskless execution. Active/waiting tenants cannot be
+  unregistered. See `docs/concepts/multi-tenant.md` for migration details.
+
+
 - `wrap()` and `scheduled()` remove their own tasks on rejection, queued
   cancellation, and execution completion. Out-of-order finishes no longer
   remove another task or misattribute the next call's cost.

@@ -1,0 +1,40 @@
+{
+  "source_commit": "4ebfc706d1a6a77cbdcc5ff6a2b90b7dfcb33776",
+  "source_dirty": true,
+  "python": "3.13.15",
+  "repetitions": 20,
+  "source_sha256": {
+    "loco/convenience.py": "eb280a087e0aa47456da862d8c4f9d2b999401f50510b112fe27115fa3ecd93e",
+    "loco/tenant.py": "982279d1ddf885894037937c2b7b65cc2464b804c69d74da156e519ad0add035",
+    "loco/resource.py": "beb4e982079fcc2e73f04c748567c56f860a3039c97478f24a41fb1564386a83",
+    "loco/_cleanup.py": "03e9508d7a01d92362328b360f223cefd561ab601647216ba9e0d808488a75ff",
+    "loco/multi_resource.py": "12fdf06d76f4936277277dad6fb5c2891595dfbd0445d828b452ae44690a8c35",
+    "loco/adapters/langchain.py": "58a98419801b4bdaced1babe3a1d7fb4bef9b3f16e1fea940044dcacc96846b8",
+    "loco/adapters/google_adk.py": "8945cdcedf2bc06540b663fb859e65c8dd28894e550d3439d643fe5d7e791751",
+    "loco/adapters/crewai.py": "f6913790dcbee4f4d31342a04fb8436b4cc976fd4f552cb1c96cd5aa396ac856"
+  },
+  "results": {
+    "test_release_eventually_runs_waiting_action[1-tenant]": {
+      "passed": 20
+    },
+    "test_release_eventually_runs_waiting_action[1-pool]": {
+      "passed": 20
+    },
+    "test_release_eventually_runs_waiting_action[2-tenant]": {
+      "passed": 20
+    },
+    "test_release_eventually_runs_waiting_action[2-pool]": {
+      "passed": 20
+    },
+    "test_tenant_timeout_is_honored": {
+      "passed": 20
+    },
+    "test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue[False]": {
+      "passed": 20
+    },
+    "test_tenant_ceiling_cannot_be_bypassed_by_preloaded_agent_queue[True]": {
+      "passed": 20
+    }
+  },
+  "first_failure_messages": {}
+}
