@@ -54,9 +54,8 @@ Budget is checked **after** the resource is acquired but **before** the work exe
 1. Agent waits in the scheduling queue like normal
 2. Agent wins a resource slot via L(i) scoring
 3. Atomically check settled spend + in-flight reservations + this task estimate. If over budget:
-    - Resource is immediately released
-    - Next waiting agent gets the slot
-    - `BudgetExceededError` is raised (reject mode) or alert recorded (alert mode)
+    - Reject mode releases the slot, wakes the next waiter, and raises `BudgetExceededError`.
+    - Alert and downgrade modes record a warning, retain the slot, and continue.
 4. If allowed: reserve the estimate before work starts, then replace that reservation with settled spend on release
 
 This design ensures rejected tasks don't inflate cost metrics or emit phantom grant events.
