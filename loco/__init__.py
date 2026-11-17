@@ -80,7 +80,7 @@ __all__ = [
     # Token-to-outcome tracking (v0.4)
     "OutcomeTracker",
 ]
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 # Auto-install pretty formatter if LOCO_LOG=pretty
 _auto_install_pretty()
