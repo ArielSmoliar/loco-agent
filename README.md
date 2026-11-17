@@ -14,7 +14,7 @@
   <a href="https://pypi.org/project/loco-agent/"><img src="https://img.shields.io/pypi/v/loco-agent?color=e65100&label=PyPI" alt="PyPI"></a>
   <a href="https://pypi.org/project/loco-agent/"><img src="https://img.shields.io/pypi/pyversions/loco-agent?color=1565c0" alt="Python"></a>
   <a href="https://github.com/ArielSmoliar/loco-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-2e7d32" alt="License"></a>
-  <img src="https://img.shields.io/badge/tests-486%20passed-2e7d32" alt="Tests">
+  <a href="https://github.com/ArielSmoliar/loco-agent/actions/workflows/ci.yml"><img src="https://github.com/ArielSmoliar/loco-agent/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/adapters-7%20frameworks-1565c0" alt="Adapters">
 </p>
 
@@ -22,7 +22,7 @@
 
 Agent fleets compete for scarce APIs, compute, budgets, and authority. **LOCO decides which eligible work runs next, when it runs, and how much shared capacity it receives.**
 
-Today, LOCO is an async-first Python scheduling and cost-governance layer. It brings bounded concurrency, policy enforcement, cost attribution, and load-conscious dispatch to LangChain, CrewAI, Google ADK, OpenAI Agents SDK, Anthropic SDK, AWS Bedrock, and Azure/AutoGen.
+Today, LOCO is an async-first Python scheduling and cost-governance layer. It brings bounded concurrency, policy enforcement, cost attribution, and load-conscious dispatch to LangChain, CrewAI, Google ADK, OpenAI Python SDK, Anthropic SDK, and AWS Bedrock, with an Azure/AutoGen scheduling scaffold.
 
 The longer-term direction is a provider-independent **control plane for monitored agent fleets**:
 
@@ -37,7 +37,7 @@ The longer-term direction is a provider-independent **control plane for monitore
 | **Allocate scarce capacity** | Load-conscious dispatch, bounded concurrency, backpressure, adaptive latency/throughput tuning, and deadlock-safe multi-resource scheduling |
 | **Govern spend and access** | Per-agent budgets, rate limits, access policies, security labels, SLO error budgets, and tenant cost ceilings |
 | **Observe and explain** | Structured scheduling events, Prometheus metrics, cost attribution, token-to-outcome tracking, and a Grafana dashboard |
-| **Integrate mixed fleets** | One async API plus adapters for Anthropic, OpenAI, Google ADK, LangChain, CrewAI, AWS Bedrock, and Azure/AutoGen |
+| **Integrate mixed fleets** | One async API, SDK/callback adapters, and an Azure/AutoGen scheduling scaffold; see integration details below |
 
 LOCO ranks work only after policy determines that it is eligible. Queue pressure, age, cost, or trust can never override a denial.
 
@@ -62,7 +62,7 @@ That creates a practical research agenda: What must every agent action expose to
 ## Try LOCO in five minutes
 
 ```bash
-pip install loco-agent
+pip install --upgrade loco-agent
 ```
 
 Or from source:
@@ -75,6 +75,15 @@ pip install -e ".[dev]"
 
 Python 3.10+. Zero required dependencies (adapters use optional deps).
 
+**Latest release: [v0.4.1](https://github.com/ArielSmoliar/loco-agent/releases/tag/v0.4.1).** This release fixes concurrent policy checks, budget reservations, shutdown cancellation, callback ownership, and tenant/resource cleanup. See the [changelog](CHANGELOG.md#v041----2026-11-17).
+
+Upgrading from v0.4.0:
+
+- Custom policies must return `True` to allow or `False` to deny; non-boolean results raise `TypeError`. Warning-only policies return `True`.
+- Budgets now include in-flight reservations in `remaining()`. See [budget reservations and settlement](docs/budget_reservations.md).
+- Concurrent callbacks need matching invocation IDs. See [task and callback lifecycle](docs/task-lifecycle.md).
+- Tenant acquisitions require queued tasks and automatically remove executed attempts. See the [tenant migration guide](docs/concepts/multi-tenant.md#task-lifecycle-and-migration).
+
 Wrap any async LLM call with `loco.wrap()`. One line adds scheduling, concurrency control, and cost tracking:
 
 ```python
@@ -82,7 +91,8 @@ import asyncio
 import loco
 
 async def main():
-    loco.configure(capacity=3)  # 3 concurrent LLM slots
+    loco.configure(capacity=3, budget_mode="reject")  # 3 concurrent LLM slots
+    loco.set_budget("escalation", max_cost=6.0)  # task-weight units, not dollars
 
     # Any async callable: Anthropic, OpenAI, Gemini, etc.
     async def call_llm(prompt):
@@ -115,23 +125,29 @@ async def main():
     agents = [Agent(agent_id="urgent"), Agent(agent_id="batch")]
     scheduler = AsyncLOCOScheduler(agents, resource, optimize_for="balanced")
 
-    for _ in range(5):
-        await scheduler.submit_task("batch", Task(weight=1.0))
-    await scheduler.submit_task("urgent", Task(weight=3.0))
+    jobs = [("batch", Task(weight=1.0)) for _ in range(5)]
+    jobs.append(("urgent", Task(weight=3.0)))
+    for agent_id, task in jobs:
+        await scheduler.submit_task(agent_id, task)
 
-    async def worker(agent_id, n):
-        for _ in range(n):
-            async with scheduler.acquire(agent_id):
-                scheduler.get_agent(agent_id).serve_oldest_task()
-                await asyncio.sleep(0)
+    async def worker(agent_id, task):
+        started = False
+        try:
+            async with scheduler.acquire(agent_id, task=task):
+                started = True
+                await asyncio.sleep(0)  # your action here
+        finally:
+            scheduler.get_agent(agent_id).remove_task(task, completed=started)
 
-    await asyncio.gather(worker("urgent", 1), worker("batch", 5))
+    await asyncio.gather(*(worker(agent_id, task) for agent_id, task in jobs))
     print(scheduler.metrics.cost_by_agent())
 
 asyncio.run(main())
 ```
 
 </details>
+
+`wrap()` and `scheduled()` own task cleanup. Direct scheduler callers submit and remove their own tasks; `task=task` binds acquisition to the exact queued object.
 
 ## How LOCO works
 
@@ -253,13 +269,13 @@ scheduler = AsyncLOCOScheduler(
 | Method | Description |
 |--------|------------|
 | `await submit_task(agent_id, task)` | Enqueue a task. Auto-registers unknown agents. |
-| `async with acquire(agent_id, timeout=None)` | Context manager. Blocks until L(i) wins a slot. Auto-releases on exit. |
-| `await acquire_start(agent_id, timeout=None)` | Split API. Returns `AcquireHandle`. Use when acquire and release happen in separate callbacks. |
-| `await release_handle(handle)` | Release via handle from `acquire_start()`. Safe to call multiple times. |
+| `async with acquire(agent_id, timeout=None, task=None) as handle` | Bind an optional queued task, wait for capacity, reserve budget, and settle/release on exit. |
+| `await acquire_start(agent_id, timeout=None, task=None)` | Split API. Returns `AcquireHandle`; release it in a terminal callback or `finally` block. |
+| `await release_handle(handle, actual_cost=None)` | Settle and release once. Optional actual cost must use the budget’s units. |
 | `register_agent(agent)` | Register a new agent at runtime. |
 | `unregister_agent(agent_id)` | Remove an agent. Raises if holding or waiting. |
 | `get_agent(agent_id)` | Get the Agent object. |
-| `await shutdown(timeout=30.0)` | Graceful shutdown. Cancels waiters, drains in-flight holders. |
+| `await shutdown(timeout=30.0)` | Cancel queued callers and wait for holders. A timeout does not terminate running actions. |
 
 | Property | Type | Description |
 |----------|------|------------|
@@ -295,7 +311,8 @@ Agent(agent_id="fraud-detector", agent_type="batch")
 | `completed_tasks` | Completed task list |
 | `queue_depth_weighted` | Sum of task weights (Qi) |
 | `dmax` | Age of oldest task (Dmax_i) |
-| `serve_oldest_task()` | Pop and complete the oldest task |
+| `serve_oldest_task()` | Pop and complete the oldest task; use identity-based removal for concurrent callers |
+| `remove_task(task, completed=False)` | Idempotently remove the exact task; optionally record a completed attempt |
 
 ### SharedResource
 
@@ -344,8 +361,9 @@ from loco.budget import BudgetManager, BudgetExceededError
 budget = BudgetManager(default_limit=100.0, on_exceeded="reject")
 
 budget.set_limit("expensive-agent", max_cost=50.0)
-budget.check("expensive-agent", task_cost=10.0)  # True
-budget.record_spend("expensive-agent", cost=10.0)
+reservation = budget.reserve("expensive-agent", 10.0)
+budget.reserved("expensive-agent")                 # 10.0
+budget.settle(reservation)                         # records the reserved estimate
 budget.remaining("expensive-agent")               # 40.0
 budget.spent("expensive-agent")                    # 10.0
 budget.summary()                                   # full state dict
@@ -356,14 +374,18 @@ budget.reset_all()                                 # reset all agents
 | Enforcement mode | Behavior |
 |-----------------|----------|
 | `"reject"` | Raises `BudgetExceededError` |
-| `"alert"` | Logs warning, allows the task, records alert |
-| `"downgrade"` | Allows the task, flags for model downgrade |
+| `"alert"` | Allows the task and records an alert |
+| `"downgrade"` | Allows the task and records an alert; your integration must implement model downgrade |
 
-Budget alerts: `budget.alerts` returns a list of all exceeded events.
+Budget alerts: `budget.alerts` returns a list of all exceeded events. Advisory modes return `True` even on overages.
+
+The scheduler reserves estimated task cost before execution and settles it on release. `spent()` is settled cost; `reserved()` is in-flight commitments; `remaining()` subtracts both. Active reservations prevent budget resets. A standalone `check()` followed by `record_spend()` is not atomic admission; use reservations for concurrent work.
+
+Budgets coordinate within one shared policy object in one process. They are not a persistent or distributed ledger, and an actual provider charge above its estimate can exceed the limit. Use consistent budget units; task weights are not automatically dollars or tokens. See [budget reservations and settlement](docs/budget_reservations.md) for actual-cost reconciliation and failure behavior.
 
 ## Framework Adapters
 
-All adapters follow the same pattern: wrap LLM calls in LOCO scheduling. The developer's agent code does not change.
+SDK adapters wrap provider calls in LOCO scheduling. Callback adapters require lifecycle hooks in your integration; see [task and callback lifecycle](docs/task-lifecycle.md) for ownership and cleanup requirements.
 
 ### Anthropic SDK
 
@@ -371,18 +393,24 @@ All adapters follow the same pattern: wrap LLM calls in LOCO scheduling. The dev
 from loco.adapters.anthropic import AnthropicAdapter
 
 adapter = AnthropicAdapter(scheduler, client=anthropic.AsyncAnthropic())
-response = await adapter.create_message("analyst", model="claude-sonnet-4-20250514", ...)
+response = await adapter.create(
+    "analyst", model="claude-sonnet-4-20250514",
+    messages=[{"role": "user", "content": "Summarize this report."}],
+)
 ```
 
 Auto-computes weight from model tier (opus=5, sonnet=2, haiku=1) and prompt length.
 
-### OpenAI Agents SDK
+### OpenAI Python SDK
 
 ```python
 from loco.adapters.openai import OpenAIAdapter
 
 adapter = OpenAIAdapter(scheduler, client=openai.AsyncOpenAI())
-response = await adapter.create_chat("assistant", model="gpt-4o", messages=[...])
+response = await adapter.create(
+    "assistant", model="gpt-4o",
+    messages=[{"role": "user", "content": "Summarize this report."}],
+)
 ```
 
 Weight: gpt-4o=3, gpt-4o-mini=1.
@@ -402,7 +430,7 @@ agent = adk.Agent(
 )
 ```
 
-Uses split acquire/release across the two callbacks. Weight from Gemini model tier.
+Uses split acquire/release keyed by `(agent_name, invocation_id)`. Wire `adapter.on_model_error` for provider failures and ensure cancellation reaches a terminal callback or application cleanup. Weight from Gemini model tier.
 
 ### LangChain
 
@@ -413,7 +441,7 @@ callback = LOCOCallbackHandler(scheduler, agent_id="rag-pipeline")
 llm = ChatOpenAI(callbacks=[callback])
 ```
 
-Hooks into `on_llm_start` / `on_llm_end`. Extracts model from serialized config.
+Hooks into `on_llm_start` / `on_llm_end` / `on_llm_error`, with handles keyed by `run_id`. Extracts model from serialized config.
 
 ### CrewAI
 
@@ -421,10 +449,10 @@ Hooks into `on_llm_start` / `on_llm_end`. Extracts model from serialized config.
 from loco.adapters.crewai import CrewAIAdapter
 
 adapter = CrewAIAdapter(scheduler)
-result = await adapter.run_crew(crew, task_descriptions=[...])
+result = await adapter.run_crew(crew, inputs={"query": "research this topic"})
 ```
 
-Per-step scheduling via `step_callback`. Weight by agent role.
+`run_crew()` schedules the entire crew as one task. For per-step admission, call `before_step` and `after_step` around the actual work, with matching `invocation_id` values for concurrent steps. Use `on_step_error` on failure. A completion-only `step_callback` cannot enforce admission. See [callback lifecycle requirements](docs/task-lifecycle.md).
 
 ### AWS Bedrock
 
@@ -432,7 +460,10 @@ Per-step scheduling via `step_callback`. Weight by agent role.
 from loco.adapters.aws_bedrock import BedrockAdapter
 
 adapter = BedrockAdapter(scheduler, client=bedrock_client)
-response = await adapter.invoke("security-scanner", model_id="anthropic.claude-sonnet-4-20250514-v1:0", body={...})
+response = await adapter.invoke(
+    "your-bedrock-agent-id", input_text="Review this finding.",
+    sessionId="your-session-id", agentAliasId="your-agent-alias-id",
+)
 ```
 
 Weight from Bedrock model family (Claude, Llama, Titan).
@@ -447,7 +478,7 @@ result = await adapter.send_message("coordinator", "analyst", "analyze this")
 result = await adapter.publish_message("coordinator", "security", content, subscribers=[...])
 ```
 
-Wraps AutoGen v0.4 message delivery. Weight from Azure OpenAI model tier.
+Scheduling scaffold for AutoGen-style messaging. The current implementation returns mock delivery metadata; it does not call an AutoGen runtime. A live integration must wire actual delivery inside the scheduled operation. Weight from Azure OpenAI model tier.
 
 ## Cross-Framework Scheduling
 
@@ -540,6 +571,14 @@ graph TD
 - Multi-tenant isolation with independent cost ceilings
 - Grafana dashboard template
 - 486 tests
+
+### v0.4.1: Concurrency + Lifecycle Correctness (shipped November 2026)
+
+- Exact task binding for policy checks and concurrent task cleanup
+- Atomic in-flight budget reservations and optional actual-cost settlement
+- Fail-closed custom policy returns and queued shutdown cancellation
+- Callback handles scoped to invocations; tenant and multi-resource waiting/cleanup fixes
+- 627 tests at release; CI covers Python 3.10–3.13
 
 ### v0.5: Dynamic Plans + Durable Execution (planned Q4 2026)
 
